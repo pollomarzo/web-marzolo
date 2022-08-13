@@ -1,0 +1,22 @@
+---
+import Layout from './Layout.astro'
+const { frontmatter } = Astro.props;
+
+---
+
+<Layout page="posts">
+    <div class="h-full flex flex-col justify-between">
+        <!-- Add other UI components here, like common headers and footers. -->
+        <div>
+
+            <h6>{frontmatter.title} by {frontmatter.author}</h6>
+            <!-- 2. Rendered HTML will be passed into the default slot. -->
+            <slot />
+
+            <p>Written on: {frontmatter.date}</p>
+        </div>
+        <footer>
+            <a href="/posts">go back</a>
+        </footer>
+    </div>
+</Layout>
