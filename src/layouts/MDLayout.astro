@@ -1,22 +1,20 @@
 ---
-import Layout from './Layout.astro'
+import Layout from "./Layout.astro";
+// let's give a consistent style to all posts
+import styles from "../styles/post.css";
 const { frontmatter } = Astro.props;
-
 ---
 
 <Layout page="posts">
-    <div class="h-full flex flex-col justify-between">
-        <!-- Add other UI components here, like common headers and footers. -->
-        <div>
+  <div class="h-full flex flex-col justify-between">
+    <div class="post">
+      <h6><strong>{frontmatter.title}</strong> by {frontmatter.author}</h6>
+      <slot />
 
-            <h6>{frontmatter.title} by {frontmatter.author}</h6>
-            <!-- 2. Rendered HTML will be passed into the default slot. -->
-            <slot />
-
-            <p>Written on: {frontmatter.date}</p>
-        </div>
-        <footer>
-            <a href="/posts">go back</a>
-        </footer>
+      <p class="mt-6">Written on: {frontmatter.date}</p>
     </div>
+    <footer>
+      <a href="/posts">go back</a>
+    </footer>
+  </div>
 </Layout>
