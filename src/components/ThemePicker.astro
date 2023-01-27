@@ -1,19 +1,19 @@
 ---
 const themes = [
   {
-    label: "pp",
-    class: "pp",
-    button: {
-      color: "white",
-      bg: "black",
-    },
-  },
-  {
     label: "franz",
     class: "ff",
     button: {
       color: "#fcfcfc",
       bg: "#813405",
+    },
+  },
+  {
+    label: "pp",
+    class: "pp",
+    button: {
+      color: "#f3a712",
+      bg: "#29335c",
     },
   },
 ];
@@ -27,7 +27,7 @@ const themes = [
       <div
         style={`background-color: ${t.button.bg};color: ${t.button.color}`}
         data-applied-class={t.class}
-        class="theme-picker-button pr-1"
+        class="theme-picker-button pr-1 py-2 pl-2 select-none"
       >
         <span>{t.label}</span>
       </div>
@@ -39,6 +39,9 @@ const themes = [
   const themes = Array.from(
     document.getElementsByClassName("theme-picker-button")
   ).map((e) => (e as HTMLElement).dataset.appliedClass || "");
+
+  document.documentElement.classList.add(themes[0]);
+
   for (const b of document.getElementsByClassName("theme-picker-button")) {
     b.addEventListener("click", () => {
       document.documentElement.classList.remove(...themes);

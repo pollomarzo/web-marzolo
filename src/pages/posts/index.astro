@@ -6,7 +6,7 @@ const posts = await Astro.glob("../post/*.mdx");
 ---
 
 <Layout page="posts">
-  <p>These are all the posts (card from astro :) :</p>
+  <p>These are all the posts:</p>
   <div class="flex mt-4 gap-4">
     {
       posts.map((post) => (
