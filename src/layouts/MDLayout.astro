@@ -15,8 +15,8 @@ const { frontmatter } = Astro.props;
 
       {frontmatter.date && <p class="mt-6">Written on: {frontmatter.date}</p>}
     </div>
-    <footer>
-      <a href="/posts">go back</a>
+    <footer class="pt-8">
+      <a href="/posts" class="underline">go back</a>
     </footer>
   </div>
 </Layout>
