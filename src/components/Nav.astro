@@ -11,19 +11,22 @@ const menu = [
 ];
 ---
 
-<nav
-  class="flex items-center justify-between px-3 py-3 mt-10 bg-black text-white"
->
+<nav class="flex items-center justify-between px-3 py-3 mt-10 relative">
   <h2>
     <a href="/">Marzolo's website</a>
   </h2>
-  <ul class="hidden md:flex md:items-stretch">
+  <div id="hamburger" class="md:hidden flex flex-col gap-1.5 cursor-pointer">
+    <div class="line"></div>
+    <div class="line"></div>
+    <div class="line"></div>
+  </div>
+  <ul id="nav-list" class="hidden md:flex md:items-stretch bg-header">
     {
       menu.map((d) => (
         <li>
           <a
-            class={`block mx-4 tracking-wider border-x-2 px-2 ${
-              "/" + current === d.url ? "bg-red-700" : ""
+            class={`block mx-4 tracking-wider border-x-2 px-2 color-border ${
+              "/" + current === d.url ? "bg-accent c-accent-text" : ""
             }`}
             href={d.url}
           >
@@ -34,3 +37,41 @@ const menu = [
     }
   </ul>
 </nav>
+
+<script>
+  document
+    .getElementById("hamburger")
+    ?.addEventListener("click", (e) =>
+      document.getElementById("nav-list")?.classList.toggle("expanded")
+    );
+</script>
+
+<style>
+  .color-border {
+    border-color: var(--color-header-text);
+  }
+  nav {
+    color: var(--color-header-text);
+    background-color: var(--color-header);
+  }
+
+  a {
+    background-color: var(--color-bg-header);
+  }
+
+  .line {
+    width: 40px;
+    height: 3px;
+    background-color: var(--color-header-text);
+  }
+  .expanded {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    right: 0;
+  }
+  .expanded a {
+    margin: 0;
+  }
+</style>

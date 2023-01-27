@@ -1,5 +1,6 @@
 ---
 import Nav from "../components/Nav.astro";
+import ThemePicker from "../components/ThemePicker.astro";
 
 export interface Props {
   page: string;
@@ -15,24 +16,61 @@ const { page } = Astro.props as Props;
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
-    <title>Marzolo WIP</title>
+    <title>Marzolo Web</title>
   </head>
 
-  <body>
+  <body class="relative">
+    <ThemePicker />
     <div class="flex flex-col w-10/12 h-full">
       <Nav current={page} />
       <div id="content">
         <slot />
       </div>
     </div>
+    <style is:global>
+      :root {
+        --color-bg: #813405;
+        --color-text: #fcfcfc;
+        --color-accent: #d45113;
+        --color-accent-text: #fcfcfc;
+        --color-header: #f9a03f;
+        --color-header-text: black;
+      }
+      :root.ff {
+        --color-bg: #813405;
+        --color-text: #fcfcfc;
+        --color-accent: #d45113;
+        --color-accent-text: #fcfcfc;
+        --color-header: #f9a03f;
+        --color-header-text: black;
+      }
+      :root.pp {
+        --color-bg: #29335c;
+        --color-text: white;
+        --color-accent: #f3a712;
+        --color-accent-text: black;
+        --color-header: #1b9aaa;
+        --color-header-text: black;
+      }
+      .c-accent {
+        color: var(--color-accent);
+      }
+      .c-accent-text {
+        color: var(--color-accent-text);
+      }
+      .bg-accent {
+        background-color: var(--color-accent);
+      }
+      .bg-header {
+        background-color: var(--color-header);
+      }
+    </style>
     <style>
       :root {
         --font-size-base: clamp(1rem, 0.34vw + 0.91rem, 1.19rem);
         --font-size-lg: clamp(1.2rem, 0.7vw + 1.2rem, 1.5rem);
         --font-size-xl: clamp(2.44rem, 2.38vw + 1.85rem, 3.75rem);
 
-        --color-text: hsl(12, 5%, 4%);
-        --color-bg: hsl(10, 21%, 95%);
         --color-border: hsl(17, 24%, 90%);
       }
 

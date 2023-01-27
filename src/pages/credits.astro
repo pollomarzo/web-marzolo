@@ -1,11 +1,46 @@
 ---
 import Layout from "../layouts/Layout.astro";
+
+const people = [
+  {
+    name: "Paolo",
+    description:
+      "Made this website. Studies, and for now works as a coder. With 1.7 degrees in CS, still doesn't really know DNS.",
+  },
+  {
+    name: "Francesco",
+    description:
+      "No degrees, but knows how to configure a DNS record. Boasts a vast array of hobbies, from the least useful to the most useless, all equally fundamental.",
+  },
+];
 ---
 
 <Layout page="credits">
-  <main class="mt-16">u kno... me. and dad. thanks dad</main>
+  <main class="mt-6">
+    <ul>
+      {
+        people.map((p) => (
+          <li class="pt-6 flex no-stretch">
+            <>
+              <span class="name">{p.name}</span>
+              <span class="desc">{p.description}</span>
+            </>
+          </li>
+        ))
+      }
+    </ul>
+  </main>
 </Layout>
 
 <style>
-
+  .name {
+    background-color: var(--color-accent);
+    color: var(--color-accent-text);
+    margin-right: 0.6em;
+    padding: 0.3em 0.8em;
+    border-radius: 0.4em;
+  }
+  .no-stretch {
+    align-items: start;
+  }
 </style>

@@ -8,13 +8,26 @@ const { frontmatter } = Astro.props;
 <Layout page="posts">
   <div class="h-full flex flex-col justify-between">
     <div class="post">
-      <h6><strong>{frontmatter.title}</strong> by {frontmatter.author}</h6>
+      <h6 class="mb-6">
+        <strong>{frontmatter.title}</strong> by {frontmatter.author}
+      </h6>
       <slot />
 
-      <p class="mt-6">Written on: {frontmatter.date}</p>
+      {frontmatter.date && <p class="mt-6">Written on: {frontmatter.date}</p>}
     </div>
     <footer>
       <a href="/posts">go back</a>
     </footer>
   </div>
 </Layout>
+
+<style is:global>
+  .post a {
+    color: #0056b3;
+    text-decoration: underline;
+  }
+
+  .post a:hover {
+    color: blue;
+  }
+</style>
