@@ -1,0 +1,63 @@
+---
+export interface Props {
+  Element: string;
+}
+const { Element } = Astro.props as Props;
+---
+
+<div class="container flex flex-row">
+  <Element>Marz</Element>
+  <div class="flex flex-row items-end" id="eyes-container">
+    <div class="eye"></div>
+    <Element>l</Element>
+    <div class="eye"></div>
+  </div>
+  <Element>'s website</Element>
+</div>
+
+<script>
+  // thx https://codepen.io/whipcat/pen/ExKPQqZ
+  const eyes = Array.from(
+    document.getElementsByClassName("eye")
+  ) as Array<HTMLDivElement>;
+  const container = document.getElementById("eyes-container");
+  document.documentElement.addEventListener("mousemove", function (event) {
+    if (container) {
+      for (const eye of eyes) {
+        const pos = eye.getBoundingClientRect();
+        const center_x = pos.left + pos.width / 2;
+        const center_y = pos.top + pos.height / 2;
+        const rad = Math.atan2(event.pageX - center_x, event.pageY - center_y);
+        const rot = rad * (180 / Math.PI) * -1 + 235;
+        eye.style.transform = "rotate(" + rot + "deg)";
+      }
+    }
+  });
+</script>
+
+<style>
+  .container {
+    width: 100%;
+  }
+  .eye {
+    position: relative;
+    display: inline-block;
+    border-radius: 50%;
+    border: 1px solid var(--color-header-text);
+    height: 18px;
+    width: 18px;
+    background: transparent;
+    margin: 0px 1px 8px 1px;
+  }
+  .eye:after {
+    /*pupil*/
+    position: absolute;
+    bottom: 7px;
+    right: 7px;
+    width: 9px;
+    height: 9px;
+    background: #000;
+    border-radius: 50%;
+    content: " ";
+  }
+</style>

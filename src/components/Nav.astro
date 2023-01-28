@@ -1,4 +1,6 @@
 ---
+import Eyes from "./Eyes.astro";
+
 export interface Props {
   current: string;
 }
@@ -11,10 +13,16 @@ const menu = [
 ];
 ---
 
-<nav class="flex items-center justify-between px-3 py-3 mt-10 relative">
-  <h2>
-    <a href="/">Marzolo's website</a>
-  </h2>
+<nav class="flex items-center justify-between px-3 py-3 mt-10 relative rounded">
+  {
+    current === "credits" ? (
+      <Eyes Element="h2" />
+    ) : (
+      <h2>
+        <a href="/">Marzolo's website</a>
+      </h2>
+    )
+  }
   <div id="hamburger" class="md:hidden flex flex-col gap-1.5 cursor-pointer">
     <div class="line"></div>
     <div class="line"></div>
