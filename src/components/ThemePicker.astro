@@ -1,53 +1,39 @@
 ---
-const themes = [
-  {
-    label: "franz",
-    class: "ff",
-    button: {
-      color: "#fcfcfc",
-      bg: "#813405",
-    },
-  },
-  {
-    label: "pp",
-    class: "pp",
-    button: {
-      color: "#f3a712",
-      bg: "#29335c",
-    },
-  },
-];
+import { themes } from "../config/themes";
 ---
 
 <div
   class="flex flex-col overflow-hidden rounded-l-lg absolute bottom-50% right-0 cursor-pointer border-l-2 border-y-2 color-border"
 >
   {
-    themes.map((t) => (
+    themes.map((theme) => (
       <div
-        style={`background-color: ${t.button.bg};color: ${t.button.color}`}
-        data-applied-class={t.class}
+        style={`background-color: ${theme.colors["--color-bg"]};color: ${theme.colors["--color-accent"]}`}
+        data-applied-class={theme.class}
         class="theme-picker-button pr-1 py-2 pl-2 select-none"
       >
-        <span>{t.label}</span>
+        <span>{theme.label}</span>
       </div>
     ))
   }
 </div>
 
 <script>
-  const themes = Array.from(
-    document.getElementsByClassName("theme-picker-button")
-  ).map((e) => (e as HTMLElement).dataset.appliedClass || "");
+  import { themes, applyTheme } from "../config/themes";
 
-  document.documentElement.classList.add(themes[0]);
+  // Apply first theme by default
+  // document.documentElement.classList.add(themes[0]);
+  applyTheme(themes[0]);
 
+  // Set up theme switching
   for (const b of document.getElementsByClassName("theme-picker-button")) {
     b.addEventListener("click", () => {
-      document.documentElement.classList.remove(...themes);
-      document.documentElement.classList.add(
-        (b as HTMLElement).dataset.appliedClass || ""
-      );
+      const theme =
+        themes.find(
+          (t) => t.class === (b as HTMLElement).dataset.appliedClass,
+        ) || themes[0];
+      // console.log(theme.colors);
+      applyTheme(theme);
     });
   }
 </script>
@@ -55,5 +41,15 @@ const themes = [
 <style>
   .color-border {
     border-color: var(--color-text);
+  }
+</style>
+<style is:global>
+  :root {
+    --color-bg: #813405;
+    --color-text: #fcfcfc;
+    --color-accent: #d45113;
+    --color-accent-text: black;
+    --color-header: #f9a03f;
+    --color-header-text: black;
   }
 </style>
