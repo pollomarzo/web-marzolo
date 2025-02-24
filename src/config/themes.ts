@@ -37,15 +37,63 @@ export const themes: ThemeConfig[] = [
         }
     },
     {
-        label: "forest",
-        class: "forest",
+        label: "bb",
+        class: "bb",
         colors: {
-            "--color-bg": "#2a4d3c",
-            "--color-text": "#e8f3ed",
-            "--color-accent": "#7cc69f",
-            "--color-accent-text": "#1a332a",
-            "--color-header": "#3d735a",
-            "--color-header-text": "#e8f3ed"
+            "--color-bg": "#fff0f5",
+            "--color-text": "#4a4453",
+            "--color-accent": "#b3e0ff",
+            "--color-accent-text": "#00334d",
+            "--color-header": "#ffb3d9",
+            "--color-header-text": "#33001a"
+        }
+    },
+    {
+        label: "vv",
+        class: "vv",
+        colors: {
+            "--color-bg": "#0a192f",
+            "--color-text": "#f8f9fa",
+            "--color-accent": "#ff6b6b",
+            "--color-accent-text": "#0a192f",
+            "--color-header": "#64ffda",
+            "--color-header-text": "#020c1b"
+        }
+    },
+    {
+        label: "dd",
+        class: "dd",
+        colors: {
+            "--color-bg": "#0066cc",
+            "--color-text": "#ffffff",
+            "--color-accent": "#ffd700",
+            "--color-accent-text": "#003366",
+            "--color-header": "#ff4444",
+            "--color-header-text": "#ffffff"
+        }
+    },
+    {
+        label: "bibi",
+        class: "bibi",
+        colors: {
+            "--color-bg": "#ffffff",
+            "--color-text": "#000000",
+            "--color-accent": "#666666",
+            "--color-accent-text": "#ffffff",
+            "--color-header": "#000000",
+            "--color-header-text": "#ffffff"
+        }
+    },
+    {
+        label: "ee",
+        class: "ee",
+        colors: {
+            "--color-bg": "#590d0d",
+            "--color-text": "#ffe6e6",
+            "--color-accent": "#ff6666",
+            "--color-accent-text": "#330000",
+            "--color-header": "#8c1a1a",
+            "--color-header-text": "#fff0f0"
         }
     }
 ];
