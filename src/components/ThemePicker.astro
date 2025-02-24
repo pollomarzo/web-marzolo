@@ -2,7 +2,7 @@
 import { themes } from "../config/themes";
 ---
 
-<div
+<theme-picker
   class="flex flex-col overflow-hidden rounded-l-lg absolute bottom-50% right-0 cursor-pointer border-l-2 border-y-2 color-border"
 >
   {
@@ -16,26 +16,30 @@ import { themes } from "../config/themes";
       </div>
     ))
   }
-</div>
+</theme-picker>
 
 <script>
   import { themes, applyTheme } from "../config/themes";
 
+  class ThemePicker extends HTMLElement {
+    connectedCallback() {
+      this.addEventListener("click", (e) => {
+        console.log("ACK!", e.target);
+        const theme =
+          themes.find(
+            (t) => t.class === (e.target as HTMLElement).dataset.appliedClass,
+          ) || themes[1];
+        applyTheme(theme);
+      });
+    }
+  }
+  customElements.define("theme-picker", ThemePicker);
+
   // Apply first theme by default
   // document.documentElement.classList.add(themes[0]);
-  applyTheme(themes[0]);
+  // applyTheme(themes[0]);
 
   // Set up theme switching
-  for (const b of document.getElementsByClassName("theme-picker-button")) {
-    b.addEventListener("click", () => {
-      const theme =
-        themes.find(
-          (t) => t.class === (b as HTMLElement).dataset.appliedClass,
-        ) || themes[0];
-      // console.log(theme.colors);
-      applyTheme(theme);
-    });
-  }
 </script>
 
 <style>
@@ -44,6 +48,9 @@ import { themes } from "../config/themes";
   }
 </style>
 <style is:global>
+  .black {
+    color: black;
+  }
   :root {
     --color-bg: #813405;
     --color-text: #fcfcfc;
