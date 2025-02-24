@@ -34,7 +34,7 @@ const menu = [
         <li>
           <a
             class={`block mx-4 tracking-wider border-2 px-2 color-border ${
-              "/" + current === d.url ? "bg-accent c-accent-text" : ""
+              current === d.url.substring(1) ? "bg-accent c-accent-text" : ""
             }`}
             href={d.url}
           >
@@ -50,7 +50,7 @@ const menu = [
   document
     .getElementById("hamburger")
     ?.addEventListener("click", (e) =>
-      document.getElementById("nav-list")?.classList.toggle("expanded")
+      document.getElementById("nav-list")?.classList.toggle("expanded"),
     );
 </script>
 
@@ -66,9 +66,9 @@ const menu = [
     background-color: var(--color-header);
   }
 
-  a {
+  /* a {
     background-color: var(--color-bg-header);
-  }
+  } */
 
   a:after {
     display: block;
