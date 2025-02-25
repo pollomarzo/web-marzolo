@@ -98,7 +98,19 @@ export const themes: ThemeConfig[] = [
     }
 ];
 
-export function applyTheme(theme: ThemeConfig) {
+function isString(data: unknown): data is string {
+    return typeof data === 'string';
+};
+
+export function applyTheme(theme: ThemeConfig | string) {
+    if (isString(theme)) {
+        let t = themes.find((t) => t.class === theme)
+        if (!t) {
+            console.error(`theme ${theme} not found! using default...`)
+            t = themes[0]
+        }
+        theme = t
+    }
     for (const [prop, value] of Object.entries(theme.colors)) {
         document.documentElement.style.setProperty(prop, value);
         document.documentElement.classList.remove(
