@@ -2,14 +2,14 @@
 import Layout from "../../layouts/Layout.astro";
 import Card from "../../components/Card.astro";
 
-const posts = await Astro.glob("../post/*.mdx");
+const posts = Object.values(import.meta.glob("../post/*.mdx", { eager: true }));
 ---
 
 <Layout page="posts">
   <p>These are all the posts:</p>
   <div class="flex mt-4 gap-4">
     {
-      posts.map((post) => (
+      posts.map((post: any) => (
         <Card
           title={post.frontmatter.title}
           body={post.frontmatter.description}
