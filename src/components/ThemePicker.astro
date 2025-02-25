@@ -24,22 +24,19 @@ import { themes } from "../config/themes";
   class ThemePicker extends HTMLElement {
     connectedCallback() {
       this.addEventListener("click", (e) => {
-        console.log("ACK!", e.target);
+        const target = (e.target as HTMLElement).closest(
+          "[data-applied-class]",
+        ) as HTMLElement;
+        if (!target) return;
+
         const theme =
-          themes.find(
-            (t) => t.class === (e.target as HTMLElement).dataset.appliedClass,
-          ) || themes[1];
+          themes.find((t) => t.class === target.dataset.appliedClass) ||
+          themes[1];
         applyTheme(theme);
       });
     }
   }
   customElements.define("theme-picker", ThemePicker);
-
-  // Apply first theme by default
-  // document.documentElement.classList.add(themes[0]);
-  // applyTheme(themes[0]);
-
-  // Set up theme switching
 </script>
 
 <style>
