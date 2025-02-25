@@ -1,0 +1,53 @@
+---
+import { ThemeConfig } from "../config/themes";
+export interface Props {
+    theme: ThemeConfig;
+}
+
+const { theme } = Astro.props as Props;
+---
+
+<theme-button
+    data-applied-class={theme.class}
+    class="theme-button pr-1 py-2 pl-2 select-none hover:underline"
+    id="theme_button"
+>
+    <span>{theme.label}</span>
+</theme-button>
+
+<style
+    define:vars={{
+        bg: theme.colors["--color-bg"],
+        text: theme.colors["--color-text"],
+        accent: theme.colors["--color-accent"],
+        accent_text: theme.colors["--color-accent-text"],
+        header: theme.colors["--color-header"],
+        class: theme.class,
+    }}
+>
+    #theme_button {
+        color: var(--text);
+        background-color: var(--bg);
+    }
+    #theme_button:hover {
+        color: var(--accent_text);
+        background-color: var(--accent);
+        text-decoration: underline;
+        text-decoration-color: var(--header);
+        text-underline-offset: 5px;
+        text-decoration-thickness: 4px;
+    }
+</style>
+
+<script>
+    import { applyTheme } from "../config/themes";
+
+    class ThemeButton extends HTMLElement {
+        connectedCallback() {
+            this.addEventListener("click", () => {
+                applyTheme(this.dataset.appliedClass || "");
+            });
+        }
+    }
+    customElements.define("theme-button", ThemeButton);
+</script>

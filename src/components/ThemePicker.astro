@@ -1,53 +1,16 @@
 ---
 import { themes } from "../config/themes";
+import ThemeButton from "./ThemeButton.astro";
 ---
 
 <theme-picker
   class="flex flex-col overflow-hidden rounded-l-lg absolute bottom-50% right-0 cursor-pointer border-l-2 border-y-2 color-border"
 >
-  {
-    themes.map((theme) => (
-      <div
-        style={`background-color: ${theme.colors["--color-bg"]};color: ${theme.colors["--color-accent"]}`}
-        data-applied-class={theme.class}
-        class="theme-picker-button pr-1 py-2 pl-2 select-none"
-      >
-        <span>{theme.label}</span>
-      </div>
-    ))
-  }
+  {themes.map((theme) => <ThemeButton theme={theme} />)}
 </theme-picker>
 
-<script>
-  import { themes, applyTheme } from "../config/themes";
-
-  class ThemePicker extends HTMLElement {
-    connectedCallback() {
-      this.addEventListener("click", (e) => {
-        const target = (e.target as HTMLElement).closest(
-          "[data-applied-class]",
-        ) as HTMLElement;
-        if (!target) return;
-
-        const theme =
-          themes.find((t) => t.class === target.dataset.appliedClass) ||
-          themes[1];
-        applyTheme(theme);
-      });
-    }
-  }
-  customElements.define("theme-picker", ThemePicker);
-</script>
-
-<style>
-  .color-border {
-    border-color: var(--color-text);
-  }
-</style>
 <style is:global>
-  .black {
-    color: black;
-  }
+  /* default style */
   :root {
     --color-bg: #813405;
     --color-text: #fcfcfc;
