@@ -1,5 +1,8 @@
 ---
+import Card from "~/components/Card.astro";
 import Layout from "../layouts/Layout.astro";
+import { getCollection } from "astro:content";
+const thoughts = await getCollection("thoughts");
 ---
 
 <Layout page="">
@@ -9,6 +12,13 @@ import Layout from "../layouts/Layout.astro";
       >posts</a
     >, or check out the family from the top bar.
   </main>
+  <ul>
+    {
+      thoughts.map((t) => (
+        <Card href="" title={t.data.label} body={t.data.content} />
+      ))
+    }
+  </ul>
 </Layout>
 
 <style></style>
