@@ -1,0 +1,84 @@
+---
+import { themeInCssVar, type ThemeConfig } from "../config/themes";
+
+export interface Props {
+    author: string;
+    theme: ThemeConfig | string;
+    body: string;
+    emoji: string | null;
+    datetime: string;
+}
+
+const { author, theme, body, emoji, datetime } = Astro.props as Props;
+const [date, time] = new Date(datetime).toLocaleString("en-US").split(", ");
+---
+
+<li style={themeInCssVar(theme)} class="link-card" data-author={theme}>
+    <div class="d-flex flex-column">
+        <h3 class="whitespace-nowrap">
+            {author}
+            <span id="talk_emoji">🗣</span>
+        </h3>
+        <div>
+            <div>{date}</div>
+            <div>{time}</div>
+        </div>
+    </div>
+    <p>
+        {body}
+    </p>
+</li>
+<style>
+    .link-card {
+        list-style: none;
+        display: flex;
+        border: 2px solid var(--color-accent);
+        border-radius: 0.5rem;
+        transition: border-color 0.3s ease;
+        position: relative;
+    }
+    .link-card::before {
+        content: attr(data-author);
+        position: absolute;
+        top: 0px;
+        right: 0px;
+        background-color: black;
+        color: white;
+    }
+
+    .link-card:is(:hover, :focus-within) {
+        border-color: transparent;
+    }
+
+    .link-card {
+        width: 100%;
+        text-decoration: none;
+        line-height: 1.4;
+        padding: 0.5em 0.5em;
+        border-radius: 0.35rem;
+        color: var(--color-header-text);
+        background-color: var(--color-header);
+        opacity: 0.8;
+    }
+
+    h2 {
+        margin: 0;
+        transition: color 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    p {
+        margin-top: 0.5rem;
+        margin-bottom: 0;
+    }
+
+    #talk_emoji {
+        display: inline-block;
+        transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        color: var(--color-accent);
+    }
+
+    .link-card:is(:hover, :focus-within) #talk_emoji {
+        will-change: transform;
+        transform: translateX(2px);
+    }
+</style>

@@ -3,6 +3,7 @@ import Card from "~/components/Card.astro";
 import Layout from "../layouts/Layout.astro";
 import { getCollection } from "astro:content";
 const thoughts = await getCollection("thoughts");
+import ThoughtCard from "~/components/ThoughtCard.astro";
 ---
 
 <Layout page="">
@@ -12,13 +13,25 @@ const thoughts = await getCollection("thoughts");
       >posts</a
     >, or check out the family from the top bar.
   </main>
-  <ul>
-    {
-      thoughts.map((t) => (
-        <Card href="" title={t.data.label} body={t.data.content} />
-      ))
-    }
-  </ul>
+  <div id="thoughts_container" class="md:w-1/2 w-full self-end">
+    <ul>
+      {
+        thoughts.map((t) => (
+          <ThoughtCard
+            author={t.data.label}
+            body={t.data.content}
+            theme={t.data.author}
+            emoji={null}
+            datetime={t.data.datetime}
+          />
+        ))
+      }
+    </ul>
+  </div>
 </Layout>
 
-<style></style>
+<style>
+  /* #thoughts_container {
+    width: 50%;
+  } */
+</style>

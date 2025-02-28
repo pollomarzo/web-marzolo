@@ -102,7 +102,7 @@ function isString(data: unknown): data is string {
     return typeof data === 'string';
 };
 
-export function applyTheme(theme: ThemeConfig | string) {
+export function getTheme(theme: ThemeConfig | string) {
     if (isString(theme)) {
         let t = themes.find((t) => t.class === theme)
         if (!t) {
@@ -111,12 +111,21 @@ export function applyTheme(theme: ThemeConfig | string) {
         }
         theme = t
     }
+    return theme
+}
+
+export function applyTheme(theme: ThemeConfig | string, parent = document.documentElement) {
+    theme = getTheme(theme)
     for (const [prop, value] of Object.entries(theme.colors)) {
-        document.documentElement.style.setProperty(prop, value);
-        document.documentElement.classList.remove(
-            ...themes.map((theme) => theme.class),
-        );
-        document.documentElement.classList.add(theme.class);
+        parent.style.setProperty(prop, value);
+        // if (parent === document.documentElement)
+        // document.documentElement.classList.remove(
+        //     ...themes.map((theme) => theme.class),
+        // );
+        // document.documentElement.classList.add(theme.class);
 
     }
+}
+export function themeInCssVar(theme: ThemeConfig | string) {
+    return Object.entries(getTheme(theme).colors).reduce((p, c) => p + `;${c[0]}:${c[1]}`, "")
 }
