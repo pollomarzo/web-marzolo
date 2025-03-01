@@ -1,0 +1,84 @@
+name: Enforce Bot Path Restrictions
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  verify-path-restrictions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+
+      - name: Verify bot changes stay within allowed path
+        id: verify
+        run: |
+          ALLOWED_PATH="src/thoughts/"  # Must end with /
+          BOT_EMAIL="thoughts_bot@marzolo.com"
+          SECURITY_BOT_EMAIL="security-bot@example.com"  # Your security bot email
+
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:'%ae')
+          
+          # Skip security bot's own commits
+          if [[ "$COMMIT_AUTHOR" == "$SECURITY_BOT_EMAIL" ]]; then
+            echo "Skipping check for security bot's own commit"
+            exit 0
+          fi
+
+          if [[ "$COMMIT_AUTHOR" == "$BOT_EMAIL" ]]; then
+            echo "Bot commit detected, checking path restrictions..."
+            
+            # Check all changed files in the commit
+            git diff --name-only ${{ github.event.before }}..${{ github.event.after }} > changed_files.txt
+            
+            VIOLATIONS=0
+            while IFS= read -r file; do
+              if [[ ! "$file" =~ ^$ALLOWED_PATH ]]; then
+                echo "❌ VIOLATION: Bot modified '$file' outside allowed path!"
+                VIOLATIONS=$((VIOLATIONS+1))
+                echo "$file" >> unauthorized_files.txt
+              else
+                echo "✅ Allowed: $file"
+              fi
+            done < changed_files.txt
+            
+            if [ $VIOLATIONS -gt 0 ]; then
+              echo "::set-output name=unauthorized::true"
+              echo "Found $VIOLATIONS unauthorized file changes!"
+              exit 1
+            else
+              echo "All changes are within authorized paths."
+            fi
+          else
+            echo "Not a bot commit, skipping verification."
+          fi
+
+      - name: Revert unauthorized changes
+        if: failure() && steps.verify.outputs.unauthorized == 'true'
+        run: |
+          echo "Reverting unauthorized changes..."
+          git config --global user.name "Security Bot"
+          git config --global user.email "$SECURITY_BOT_EMAIL"
+          git revert HEAD --no-edit
+          git push "https://$GITHUB_ACTOR:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY.git" HEAD:main
+
+      - name: Send violation notification
+        if: failure() && steps.verify.outputs.unauthorized == 'true'
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Bot Path Violation Detected',
+              body: `Unauthorized changes detected and reverted. Details:
+                - Commit: ${{ github.sha }}
+                - Author: ${{ github.actor }}
+                See workflow run for full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
+            })
