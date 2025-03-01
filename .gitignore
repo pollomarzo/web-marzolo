@@ -23,3 +23,17 @@ pnpm-debug.log*
 .env
 .env.production
 .aider*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+
+# Bot credentials (but keep templates)
+bot/credentials.json
+bot/config.json
+
+secrets

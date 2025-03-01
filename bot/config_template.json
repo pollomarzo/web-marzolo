@@ -1,0 +1,6 @@
+{
+    "CHAT_ID": {
+        "name": "username",
+        "default_author": "default author name"
+    }
+}
