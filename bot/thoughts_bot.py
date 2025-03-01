@@ -296,7 +296,7 @@ class ThoughtsBotHandler:
             "author": context.user_data["author"],
             "label": context.user_data["author"],  # Keep original author as label
             "css_class": css_class,
-            "datetime": now_str,
+            "datetime": now_str + "Z",
             "content": context.user_data["content"],
         }
         logging.info(f"saving thought in {filepath}")
