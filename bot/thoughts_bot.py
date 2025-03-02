@@ -39,9 +39,11 @@ BRANCH_NAME = "main"
 CURRENT_DIR = Path(__file__).parent.resolve()
 CREDENTIALS_FILE = CURRENT_DIR / "credentials.json"
 CONFIG_FILE = CURRENT_DIR / "config.json"
-THOUGHTS_DIR = CURRENT_DIR.parent / "src" / "thoughts"
+CONTENT_DIR = CURRENT_DIR.parent / "src/bot_gen"
+THOUGHTS_DIR = CONTENT_DIR / "thoughts"
+PRESS_DIR = CONTENT_DIR / "selected_press"
 SSH_KEY_PATH = CURRENT_DIR.parent / "secrets/bot_ssh_key"
-ALLOWED_FOLDER = CURRENT_DIR.parent / "src/thoughts"
+ALLOWED_FOLDER = CONTENT_DIR
 
 # Loading credentials
 if not CREDENTIALS_FILE.exists():

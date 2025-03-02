@@ -12,7 +12,7 @@ import { glob } from 'astro/loaders';
 //     loader: glob({ pattern: "**/*.(md|mdx)", base: "/src/pages/post" })
 // });
 const thoughts = defineCollection({
-    loader: glob({ pattern: "**/*.json", base: "./src/thoughts" }),
+    loader: glob({ pattern: "**/*.json", base: "./src/bot_gen/thoughts" }),
     schema: z.object({
         author: z.string(),
         label: z.string(),
