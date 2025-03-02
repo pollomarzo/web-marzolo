@@ -180,6 +180,10 @@ class ThoughtsBotHandler:
     @check_enabled
     async def start_thought(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the thought creation process"""
+        # Check chat type - only proceed in private chats
+        if update.effective_chat.type != "private":
+            return ConversationHandler.END
+
         context.user_data["content"] = update.message.text
         context.user_data["creation_time"] = (
             datetime.datetime.now()
