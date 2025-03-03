@@ -1,0 +1,37 @@
+services:
+  thoughts_bot:
+    build: .
+    volumes:
+      # Git directory needs write access for git operations
+      - ../.git:/repo/.git
+
+      # Bot's working directory with write access
+      - ../src/bot_gen:/repo/src/bot_gen
+
+      # Rest of repository read-only for git context
+      - ..:/repo:ro
+
+      # Bot code
+      - ./thoughts_bot.py:/app/thoughts_bot.py
+
+      # Config files and SSH key (read-only)
+      - ../secrets/bot_ssh_key:/app/.ssh/bot_ssh_key:ro
+      - ../bot/credentials.json:/app/config/credentials.json:ro
+      - ../bot/config.json:/app/config/config.json
+
+    environment:
+      # Git configuration
+      - GIT_DIR=/repo/.git
+      - GIT_WORK_TREE=/repo
+      - CONTENT_DIR=/repo/src/bot_gen
+      - GIT_BOT_USER=thoughts_bot
+      # same as in github action
+      - GIT_BOT_EMAIL=thoughts_bot@marzolo.com
+
+      # Bot configuration
+      - SSH_KEY_PATH=/app/.ssh/bot_ssh_key
+      - CREDENTIALS_FILE=/app/config/credentials.json
+      - CONFIG_FILE=/app/config/config.json
+
+    # Ensure container keeps running
+    restart: unless-stopped

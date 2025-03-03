@@ -4,6 +4,7 @@ import datetime
 import json
 import logging
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -24,26 +25,49 @@ CONTENT = 1
 USERNAME_CONFIRM = 2
 AUTHOR_INPUT = 3
 PREVIEW = 4
+CSS_INPUT = 5  # New state for CSS class input
+
+# Message pattern
+URL_REGEX = (
+    r"http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+)
+
+# Blacklisted URL patterns
+BLACKLISTED_URLS = [
+    r"instagram.com/reels/",
+    r"youtube.com/shorts/",
+    r"tiktok.com",
+]
 
 # Callback data
 CONFIRM = "confirm"
 CANCEL = "cancel"
 EDIT = "edit"
 OK = "ok"
+APPROVE = "approve"  # New callback data for chat approval
+APPROVE_LINK = "approve_link"  # New callback data for link approval
+REJECT_LINK = "reject_link"  # New callback data for link rejection
 
-GIT_USER = "thoughts_bot"
-GIT_EMAIL = "thoughts_bot@marzolo.com"  # github action checks for this!
+GIT_USER = os.getenv("GIT_BOT_USER")
+GIT_EMAIL = os.getenv("GIT_BOT_EMAIL")  # github action checks for this!
 BRANCH_NAME = "main"
 
-# File paths
-CURRENT_DIR = Path(__file__).parent.resolve()
-CREDENTIALS_FILE = CURRENT_DIR / "credentials.json"
-CONFIG_FILE = CURRENT_DIR / "config.json"
-CONTENT_DIR = CURRENT_DIR.parent / "src/bot_gen"
+# File paths - updated for Docker environment
+CURRENT_DIR = Path("/app")
+CREDENTIALS_FILE = Path(
+    os.getenv("CREDENTIALS_FILE")  # , CURRENT_DIR / "config/credentials.json")
+)
+CONFIG_FILE = Path(os.getenv("CONFIG_FILE"))  # , CURRENT_DIR / "config/config.json"))
+CONTENT_DIR = Path(os.getenv("CONTENT_DIR"))  # Docker mounted volume
 THOUGHTS_DIR = CONTENT_DIR / "thoughts"
 PRESS_DIR = CONTENT_DIR / "selected_press"
-SSH_KEY_PATH = CURRENT_DIR.parent / "secrets/bot_ssh_key"
+SSH_KEY_PATH = Path(
+    os.getenv("SSH_KEY_PATH")  # , "/app/.ssh/bot_ssh_key")
+)  # Docker mounted SSH key
 ALLOWED_FOLDER = CONTENT_DIR
+GIT_RELATIVE_PATH = (
+    "src/bot_gen"  # Relative path from repository root for git operations
+)
 
 # Loading credentials
 if not CREDENTIALS_FILE.exists():
@@ -95,38 +119,55 @@ def git_operations(now_str: str):
     try:
         author = f"{GIT_USER} <{GIT_EMAIL}>"
 
-        # Git add
-        # subprocess.run(["git", "add", filepath], check=True)
-        subprocess.run(["git", "add", ALLOWED_FOLDER], check=True)
+        # Git operations will use GIT_DIR and GIT_WORK_TREE from environment
+        logging.info(f"Using GIT_RELATIVE_PATH for git operations: {GIT_RELATIVE_PATH}")
+
+        # Git add specific path only
+        logging.info(f"Running: git add {GIT_RELATIVE_PATH}")
+        subprocess.run(["git", "add", GIT_RELATIVE_PATH], check=True)
 
         # Git commit
         commit_message = f"Add thought {now_str} from Telegram bot"
+        logging.info(f"Running: git commit --author {author} -m {commit_message}")
         subprocess.run(
             ["git", "commit", "--author", author, "-m", commit_message], check=True
         )
 
         # Git push with strict SSH key usage
+        logging.info("Setting up SSH command for git push...")
         ssh_cmd = (
             f'ssh -i "{SSH_KEY_PATH}" '  # Use the specified key
             "-o IdentitiesOnly=yes "  # Ignore keys from SSH agent
-            "-o AddKeysToAgent=no"  # Prevent adding keys to agent
+            "-o AddKeysToAgent=no "  # Prevent adding keys to agent
+            "-F /dev/null"  # force an empty config
         )
 
         # Prepare environment
+        logging.info("Preparing environment for git push...")
         env = os.environ.copy()
         env["GIT_SSH_COMMAND"] = ssh_cmd
 
         # Block SSH agent access by removing its socket variable
         if "SSH_AUTH_SOCK" in env:
             del env["SSH_AUTH_SOCK"]
+            logging.info("Removed SSH_AUTH_SOCK from environment")
 
         # Push with the custom environment
+        logging.info(
+            f"Running: git push -u origin {BRANCH_NAME} with set up ssh command"
+        )
         subprocess.run(
             ["git", "push", "-u", "origin", BRANCH_NAME], check=True, env=env
         )
+        logging.info("Git operations completed successfully")
         return True
     except subprocess.CalledProcessError as e:
         logging.error(f"Git operation failed: {e}")
+        if hasattr(e, "output"):
+            logging.error(f"Command output: {e.output}")
+        return False
+    except Exception as e:
+        logging.error(f"Unexpected error in git operations: {str(e)}")
         return False
 
 
@@ -143,38 +184,83 @@ class ThoughtsBotHandler:
     def setup_handlers(self):
         """Set up all command and conversation handlers"""
         self.application.add_handler(CommandHandler("addchat", self.add_chat))
-        self.application.add_handler(CommandHandler("removechat", self.remove_chat))
 
-        # Chat approval handlers
+        # Chat registration handler
         self.application.add_handler(
             CallbackQueryHandler(self.handle_chat_refusal, pattern=f"^{CANCEL}:.*$")
         )
-        # Handle admin text responses for CSS class
+
+        # Chat registration handler for CSS input state
         self.application.add_handler(
-            MessageHandler(
-                filters.TEXT & filters.Chat(chat_id=DEVELOPER_CHAT_ID) & filters.REPLY,
-                self.handle_chat_approval,
+            ConversationHandler(
+                entry_points=[
+                    CallbackQueryHandler(
+                        self.handle_chat_approval, pattern=f"^{APPROVE}:.*$"
+                    )
+                ],
+                states={
+                    CSS_INPUT: [
+                        MessageHandler(
+                            filters.REPLY
+                            & filters.TEXT
+                            & filters.Chat(chat_id=DEVELOPER_CHAT_ID)
+                            & ~filters.COMMAND,
+                            self.handle_css_input,
+                        )
+                    ],
+                },
+                fallbacks=[CommandHandler("cancel", self.cancel)],
             )
         )
 
-        # Main conversation handler
-        conv_handler = ConversationHandler(
-            entry_points=[
-                MessageHandler(filters.TEXT & ~filters.COMMAND, self.start_thought)
-            ],
-            states={
-                USERNAME_CONFIRM: [CallbackQueryHandler(self.handle_username_confirm)],
-                AUTHOR_INPUT: [
+        # Main thought creation handler
+        self.application.add_handler(
+            ConversationHandler(
+                entry_points=[
                     MessageHandler(
-                        filters.TEXT & ~filters.COMMAND, self.save_custom_author
+                        filters.TEXT & ~filters.COMMAND & filters.ChatType.PRIVATE,
+                        self.start_thought,
                     )
                 ],
-                PREVIEW: [CallbackQueryHandler(self.handle_preview_choice)],
-            },
-            fallbacks=[CommandHandler("cancel", self.cancel)],
+                states={
+                    USERNAME_CONFIRM: [
+                        CallbackQueryHandler(self.handle_username_confirm)
+                    ],
+                    AUTHOR_INPUT: [
+                        MessageHandler(
+                            filters.TEXT & ~filters.COMMAND, self.save_custom_author
+                        )
+                    ],
+                    PREVIEW: [CallbackQueryHandler(self.handle_preview_choice)],
+                },
+                fallbacks=[CommandHandler("cancel", self.cancel)],
+            )
         )
 
-        self.application.add_handler(conv_handler)
+        # URL detection handler for group chats
+        self.application.add_handler(
+            MessageHandler(
+                (
+                    filters.ChatType.GROUPS | filters.ChatType.SUPERGROUP
+                )  # Only in groups
+                & filters.Regex(URL_REGEX)  # Match URLs
+                & ~filters.COMMAND,  # Ignore commands
+                self.handle_url_detection,
+            )
+        )
+
+        # Link approval handlers
+        self.application.add_handler(
+            CallbackQueryHandler(
+                self.handle_link_approval, pattern=f"^{APPROVE_LINK}:.*$"
+            )
+        )
+        self.application.add_handler(
+            CallbackQueryHandler(
+                self.handle_link_rejection, pattern=f"^{REJECT_LINK}:.*$"
+            )
+        )
+
         self.application.add_error_handler(self.error_handler)
 
     @check_enabled
@@ -338,108 +424,331 @@ class ThoughtsBotHandler:
             return
 
         chat_name = update.effective_chat.title or update.effective_chat.username
+        chat_type = update.effective_chat.type
 
-        # Send approval request to admin with only Cancel button
-        keyboard = [
-            [
-                InlineKeyboardButton("Cancel", callback_data=f"{CANCEL}:{chat_id}"),
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
+        # Embed chat info in callback data for both buttons
+        chat_data = f"{chat_id}:{chat_name}:{chat_type}"
 
-        # Send message to admin - they can reply with CSS class to approve
+        # Send message to admin
         await self.application.bot.send_message(
             chat_id=DEVELOPER_CHAT_ID,
             text=(
                 f"Chat registration request:\n"
                 f"ID: {chat_id}\n"
-                f"Name: {chat_name}\n\n"
-                "Reply with CSS class to approve, or click Cancel to deny"
+                f"Name: {chat_name}\n"
+                f"Type: {chat_type}"
             ),
-            reply_markup=reply_markup,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton(
+                            "Approve",
+                            callback_data=f"{APPROVE}:{chat_data}",
+                        ),
+                        InlineKeyboardButton(
+                            "Cancel",
+                            callback_data=f"{CANCEL}:{chat_data}",
+                        ),
+                    ]
+                ]
+            ),
         )
 
-        await update.message.reply_text(
-            "Registration request sent to administrator. Please wait for approval."
-        )
+        # Custom message based on chat type
+        if chat_type == "private":
+            user_message = (
+                "Registration request sent to administrator. "
+                "Once approved, you'll be able to record thoughts using this bot."
+            )
+        else:
+            user_message = (
+                "Registration request sent to administrator. "
+                "Once approved, I will monitor this group for links."
+            )
+
+        await update.message.reply_text(user_message)
 
     async def handle_chat_refusal(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
+        """Handle admin's refusal of chat registration"""
         query = update.callback_query
         await query.answer()
+
         if str(query.from_user.id) != DEVELOPER_CHAT_ID:
             raise Exception("A non-admin received an approval request!")
-        action, chat_id = query.data.split(":")
-        await query.edit_message_text(
-            f"Chat {chat_id} registration request has been cancelled."
-        )
-        # Notify the user
+
+        # Parse embedded data
         try:
-            await self.application.bot.send_message(
-                chat_id=chat_id,
-                text="Your chat registration request has been cancelled by the administrator.",
-            )
+            action, chat_id, chat_name, chat_type = query.data.split(":")
+        except ValueError:
+            logging.error("Invalid callback data format")
+            return
+
+        # Customize message based on chat type
+        chat_desc = f"{chat_name} ({chat_type})"
+        await query.edit_message_text(
+            f"Chat registration request for {chat_desc} has been cancelled."
+        )
+
+        # Customize notification based on chat type
+        try:
+            if chat_type == "private":
+                message = (
+                    "Your chat registration request has been cancelled by the administrator. "
+                    "You won't be able to record thoughts with this bot."
+                )
+            else:
+                message = (
+                    "This group's registration request has been cancelled by the administrator. "
+                    "The bot won't monitor messages in this group."
+                )
+
+            await self.application.bot.send_message(chat_id=chat_id, text=message)
         except Exception as e:
-            raise Exception(f"Failed to notify chat {chat_id}: {e}")
+            raise Exception(f"Failed to notify chat {chat_desc}: {e}")
 
     async def handle_chat_approval(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
-        """Handle admin's response to chat registration requests"""
-        if not (
-            "Chat registration request"
-            in update.effective_message.reply_to_message.text
-        ):
-            logging.warning(
-                f"Received a reply to a non-approval message. Discarding as accidental"
+        """Handle admin's approval of chat registration"""
+        query = update.callback_query
+        await query.answer()
+
+        if str(query.from_user.id) != DEVELOPER_CHAT_ID:
+            raise Exception("A non-admin received an approval request!")
+
+        # Parse embedded data
+        try:
+            action, chat_id, chat_name, chat_type = query.data.split(":")
+        except ValueError:
+            raise Exception("Invalid callback data format in handle_chat_approval")
+
+        config = load_config()
+
+        # For private chats, request CSS class
+        if chat_type == "private":
+            # Store chat info for CSS handler
+            context.bot_data["pending_css"] = {
+                "chat_id": chat_id,
+                "chat_name": chat_name,
+                "chat_type": chat_type,
+            }
+
+            await query.edit_message_text(
+                f"Chat {chat_name} ({chat_type}) approval pending.\n"
+                f"Please enter the CSS class for this user: (REPLY!)"
             )
+            return CSS_INPUT
+
+        # For group chats, approve immediately
+        config[chat_id] = {"name": chat_name, "type": chat_type}
+        save_config(config)
+
+        await query.edit_message_text(
+            f"Chat {chat_name} ({chat_type}) has been approved."
+        )
+
+        # Notify the chat
+        try:
+            message = (
+                "This group has been registered! "
+                "The bot will now monitor messages for links."
+            )
+            await self.application.bot.send_message(chat_id=chat_id, text=message)
+        except Exception as e:
+            logging.error(f"Failed to notify chat {chat_name} ({chat_type}): {e}")
+        return ConversationHandler.END
+
+    async def handle_css_input(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle CSS class input for private chats"""
+        if str(update.effective_chat.id) != DEVELOPER_CHAT_ID:
+            return
+
+        # Get pending chat info
+        pending = context.bot_data.get("pending_css")
+        if not pending:
+            logging.warning("Received CSS input but no pending chat")
             return
 
         css_class = update.message.text
-        chat_id = update.effective_message.reply_to_message.from_user.id
-        chat_name = update.effective_message.reply_to_message.from_user.username
+        chat_id = pending["chat_id"]
+        chat_name = pending["chat_name"]
+        chat_type = pending["chat_type"]
 
+        # Save to config
         config = load_config()
         config[chat_id] = {
             "name": chat_name,
+            "type": chat_type,
             "css_class": css_class,
+            "default_author": chat_name,  # Initialize default_author with chat name
         }
         save_config(config)
 
+        # Clean up pending state
+        del context.bot_data["pending_css"]
+
+        # Notify admin
         await update.message.reply_text(
-            f"Chat {chat_id} has been approved with CSS class '{css_class}'."
+            f"Chat {chat_name} has been approved with CSS class: {css_class}"
         )
 
         # Notify the user
         try:
-            await self.application.bot.send_message(
-                chat_id=chat_id,
-                text="Your chat registration has been approved! You can now use the bot.",
+            message = (
+                "Your chat registration has been approved! "
+                "You can now use this bot to record thoughts."
             )
+            await self.application.bot.send_message(chat_id=chat_id, text=message)
         except Exception as e:
-            logging.error(f"Failed to notify chat {chat_id}: {e}")
-        return
+            logging.error(f"Failed to notify chat {chat_name}: {e}")
+        return ConversationHandler.END
 
-    async def remove_chat(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Remove a chat from config"""
-        if str(update.effective_chat.id) != DEVELOPER_CHAT_ID:
-            await update.message.reply_text("Only the admin can remove chats.")
+    async def handle_url_detection(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle URL detection in group messages"""
+        # Only proceed if chat is enabled
+        chat_id = str(update.effective_chat.id)
+        config = load_config()
+        if chat_id not in config:
             return
+
+        # Extract URLs from message
+        message_text = update.message.text
+        urls = re.findall(URL_REGEX, message_text)
+
+        if not urls:
+            return
+
+        # Check each URL against blacklist
+        for url in urls:
+            if any(re.search(pattern, url) for pattern in BLACKLISTED_URLS):
+                continue
+            logging.info(f"{APPROVE_LINK}:{url}")
+
+            # Create approval request for admin
+            # Create a unique identifier for this URL request
+            url_id = len(context.bot_data.get("pending_urls", []))
+
+            # Store URL in bot data
+            if "pending_urls" not in context.bot_data:
+                context.bot_data["pending_urls"] = []
+            context.bot_data["pending_urls"].append(url)
+
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "Approve", callback_data=f"{APPROVE_LINK}:{url_id}"
+                    ),
+                    InlineKeyboardButton(
+                        "Reject", callback_data=f"{REJECT_LINK}:{url_id}"
+                    ),
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
+            chat_name = update.effective_chat.title
+            user_name = (
+                update.effective_user.username or update.effective_user.first_name
+            )
+
+            await self.application.bot.send_message(
+                chat_id=DEVELOPER_CHAT_ID,
+                text=(
+                    f"New link shared in <{chat_name}> by @{user_name}:\n\n"
+                    f"<{url}>\n\n"
+                    f"Context: {message_text}"
+                ),
+                reply_markup=reply_markup,
+            )
+
+    async def handle_link_approval(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle admin's approval of shared link"""
+        query = update.callback_query
+        await query.answer()
+
+        if str(query.from_user.id) != DEVELOPER_CHAT_ID:
+            raise Exception("A non-admin received a link approval request!")
+
+        # Extract URL ID from callback data and get URL from bot data
+        url_id = int(query.data.split(":", 1)[1])
 
         try:
-            chat_id = context.args[0]
-        except IndexError:
-            await update.message.reply_text("Usage: /removechat <chat_id>")
+            if "pending_urls" not in context.bot_data:
+                await query.edit_message_text("Error: No pending URLs found")
+                return
+
+            url = context.bot_data["pending_urls"][url_id]
+            # Clean up the used URL
+            context.bot_data["pending_urls"].pop(url_id)
+
+            # Create directory structure
+            now = datetime.datetime.now()
+            year_month = now.strftime("%Y-%m")
+            now_str = format_datetime(now)
+
+            # Ensure directory exists
+            press_dir = PRESS_DIR / year_month
+            press_dir.mkdir(parents=True, exist_ok=True)
+            await query.edit_message_text(f"{url}\nSaving link...")
+
+            # Save link data
+            filepath = press_dir / f"{now_str}.json"
+            link_data = {
+                "url": url,
+                "datetime": now_str + "Z",
+                # Title could be fetched but requires additional dependencies
+                "title": url,
+            }
+
+            with open(filepath, "w") as f:
+                json.dump(link_data, f, indent=4)
+
+            # Git operations
+            if git_operations(now_str):
+                await query.edit_message_text(f"Link approved and saved: {url}")
+            else:
+                await query.edit_message_text(
+                    f"Link saved but git push failed: {url}\nPlease check logs."
+                )
+                # Notify admin
+                await self.application.bot.send_message(
+                    chat_id=DEVELOPER_CHAT_ID,
+                    text=f"Error pushing approved link to repository: {filepath}",
+                )
+
+        except Exception as e:
+            logging.error(f"Error saving approved link: {e}")
+            await query.edit_message_text(f"Error saving link: {e}")
+
+    async def handle_link_rejection(
+        self, update: Update, context: ContextTypes.DEFAULT_TYPE
+    ):
+        """Handle admin's rejection of shared link"""
+        query = update.callback_query
+        await query.answer()
+
+        if str(query.from_user.id) != DEVELOPER_CHAT_ID:
+            raise Exception("A non-admin received a link rejection request!")
+
+        # Extract URL ID from callback data and get URL from bot data
+        url_id = int(query.data.split(":", 1)[1])
+
+        if "pending_urls" not in context.bot_data:
+            await query.edit_message_text("Error: No pending URLs found")
             return
 
-        config = load_config()
-        if chat_id in config:
-            del config[chat_id]
-            save_config(config)
-            await update.message.reply_text(f"Chat {chat_id} removed successfully!")
-        else:
-            await update.message.reply_text(f"Chat {chat_id} not found in config.")
+        url = context.bot_data["pending_urls"][url_id]
+        # Clean up the used URL
+        context.bot_data["pending_urls"].pop(url_id)
+
+        await query.edit_message_text(f"Link rejected: {url}")
 
     async def cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel the conversation"""
@@ -461,10 +770,10 @@ class ThoughtsBotHandler:
 
 
 if __name__ == "__main__":
-
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         level=logging.INFO,
     )
     bot = ThoughtsBotHandler()
+    logging.warning("\n\n\nSTARTING BOT\n\n")
     bot.run()
