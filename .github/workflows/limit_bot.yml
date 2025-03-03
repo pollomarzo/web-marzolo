@@ -1,62 +1,116 @@
+# to be honest, i'm not even sure this works. co-wrote this with claude to learn
+# a bit about github actions and shell scripting, and it seems to work fine when
+# "simulated" locally, but i have limited faith
 name: Enforce Bot Path Restrictions
-
 on:
   push:
     branches: [ main ]
+
+env:
+  ALLOWED_PATH: ${{ vars.BOT_ALLOWED_PATH || 'src/bot_gen/' }}
+  BOT_EMAIL: ${{ vars.BOT_EMAIL || 'thoughts_bot@marzolo.com' }}
+  SECURITY_BOT_EMAIL: ${{ vars.SECURITY_BOT_EMAIL || 'security-bot@example.com' }}
 
 jobs:
   verify-path-restrictions:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
       with:
-        fetch-depth: 2
-    # why the diff issue? 
+        fetch-depth: 0 # Get full history for proper analysis
+        token: ${{ secrets.GITHUB_TOKEN }} # Ensure token is passed for push access
+
     - name: Verify bot changes stay within allowed path
       id: verify
       run: |
-        ALLOWED_PATH="src/bot_gen/"  # Must end with /
-        BOT_EMAIL="thoughts_bot@marzolo.com"
-        SECURITY_BOT_EMAIL="security-bot@example.com"  # Your security bot email
+        # Get all commits in this push
+        COMMITS=$(git rev-list --reverse ${{ github.event.before }}..${{ github.event.after }})
 
-        COMMIT_AUTHOR=$(git log -1 --pretty=format:'%ae')
+        # Create a violations tracking file
+        rm -f violations.txt
 
-        # Skip security bot's own commits
-        if [[ "$COMMIT_AUTHOR" == "$SECURITY_BOT_EMAIL" ]]; then
-          echo "Skipping check for security bot's own commit"
-          exit 0
-        fi
-
-        if [[ "$COMMIT_AUTHOR" == "$BOT_EMAIL" ]]; then
-          echo "Bot commit detected, checking path restrictions..."
+        # Process each commit individually
+        for COMMIT in $COMMITS; do
+          AUTHOR_EMAIL=$(git log -1 --format='%ae' $COMMIT)
           
-          # Check all changed files in the commit
-          git diff --name-only ${{ github.event.before }}..${{ github.event.after }} > changed_files.txt
-          
-          VIOLATIONS=0
-          while IFS= read -r file; do
-            if [[ ! "$file" =~ ^$ALLOWED_PATH ]]; then
-              echo "❌ VIOLATION: Bot modified '$file' outside allowed path!"
-              VIOLATIONS=$((VIOLATIONS+1))
-              echo "$file" >> unauthorized_files.txt
-            else
-              echo "✅ Allowed: $file"
-            fi
-          done < changed_files.txt
-          
-          if [ $VIOLATIONS -gt 0 ]; then
-            echo "::set-output name=unauthorized::true"
-            echo "Found $VIOLATIONS unauthorized file changes!"
-            exit 1
-          else
-            echo "All changes are within authorized paths."
+          # Skip security bot's own commits
+          if [[ "$AUTHOR_EMAIL" == "$SECURITY_BOT_EMAIL" ]]; then
+            echo "Skipping check for security bot's commit: $COMMIT"
+            continue
           fi
+          
+          # Only check bot commits
+          if [[ "$AUTHOR_EMAIL" == "$BOT_EMAIL" ]]; then
+            echo "Checking bot commit: $COMMIT"
+            
+            # Get detailed changes for this commit
+            git diff-tree --no-commit-id -r --name-status $COMMIT > commit_changes.txt
+            
+            VIOLATIONS=0
+            VIOLATION_DETAILS=""
+            
+            while IFS= read -r line; do
+              # Split line into status and files
+              read -r STATUS FILE1 FILE2 <<< "$line"
+              
+              case $STATUS in
+                R*) # Renamed/moved file
+                  if [[ "$FILE1" =~ ^$ALLOWED_PATH && ! "$FILE2" =~ ^$ALLOWED_PATH ]]; then
+                    echo "❌ VIOLATION: Bot attempted to move '$FILE1' to '$FILE2' outside allowed path!"
+                    VIOLATIONS=$((VIOLATIONS+1))
+                    VIOLATION_DETAILS+="- Moved: $FILE1 -> $FILE2"$'\n'
+                  fi
+                  ;;
+                A|M|D) # Added, Modified, or Deleted files
+                  FILE=$FILE1
+                  if [[ ! "$FILE" =~ ^$ALLOWED_PATH ]]; then
+                    echo "❌ VIOLATION in commit $COMMIT: '$FILE' outside allowed path!"
+                    VIOLATIONS=$((VIOLATIONS+1))
+                    VIOLATION_DETAILS+="- ${STATUS}: $FILE"$'\n'
+                  else
+                    echo "✅ Allowed: $FILE"
+                  fi
+                  ;;
+                *) # Other changes
+                  echo "⚠️ Unknown change type $STATUS for file: $FILE1"
+                  ;;
+              esac
+            done < commit_changes.txt
+            
+            # If violations found, store details for this commit
+            if [ $VIOLATIONS -gt 0 ]; then
+              COMMIT_MSG=$(git log -1 --format='%s' $COMMIT)
+              echo "$COMMIT:$AUTHOR_EMAIL:$VIOLATIONS:$COMMIT_MSG"$'\n'"$VIOLATION_DETAILS" >> violations.txt
+              echo "Found $VIOLATIONS violations in commit $COMMIT"
+            fi
+          else
+            echo "Not a bot commit ($AUTHOR_EMAIL), skipping verification of $COMMIT"
+          fi
+        done
+
+        if [ -f violations.txt ]; then
+          echo "unauthorized=true" >> $GITHUB_OUTPUT
+          echo "Violations found! Check violations.txt for details"
+          cat violations.txt
+          exit 1
         else
-          echo "Not a bot commit, skipping verification."
+          echo "No violations found in any commits"
         fi
+      # if [ -f violations.txt ]; then
+      #   echo "unauthorized=true" >> $GITHUB_OUTPUT
+      #   echo "Violations found! Check violations.txt for details"
+      #   cat violations.txt
+      #   # Don't exit here, let the next steps handle it
+      #   # Instead, set the step status
+      #   echo "status=failure" >> $GITHUB_OUTPUT
+      # else
+      #   echo "No violations found in any commits"
+      #   echo "status=success" >> $GITHUB_OUTPUT
+      # fi
 
     - name: Revert unauthorized changes
       if: failure() && steps.verify.outputs.unauthorized == 'true'
@@ -64,21 +118,60 @@ jobs:
         echo "Reverting unauthorized changes..."
         git config --global user.name "Security Bot"
         git config --global user.email "$SECURITY_BOT_EMAIL"
-        git revert HEAD --no-edit
-        git push "https://$GITHUB_ACTOR:${{ secrets.GITHUB_TOKEN }}@github.com/$GITHUB_REPOSITORY.git" HEAD:main
+
+        # Process each violating commit
+        REVERT_MSG=$'🚨 Reverted unauthorized bot changes\n\nThe following commits contained violations:\n'
+
+        while IFS= read -r line; do
+          # Skip empty lines
+          [ -z "$line" ] && continue
+          
+          # Extract commit hash (first field before :)
+          COMMIT=$(echo "$line" | cut -d: -f1)
+          
+          echo "Reverting violating commit: $COMMIT"
+          git revert --no-commit $COMMIT
+          
+          # Add commit info to revert message
+          REVERT_MSG+="- $line\n"
+        done < violations.txt
+
+        # Create single revert commit with all changes
+        git commit -m "$REVERT_MSG"
+        if ! git push origin HEAD:main; then
+          echo "Failed to push revert commit. Manual intervention required."
+          exit 1
+        fi
 
     - name: Send violation notification
       if: failure() && steps.verify.outputs.unauthorized == 'true'
       uses: actions/github-script@v6
       with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        github-token: ${{ secrets.ISSUE_TOKEN || secrets.GITHUB_TOKEN }}
         script: |
-          github.rest.issues.create({
+          const fs = require('fs');
+          const violations = fs.readFileSync('violations.txt', 'utf8')
+            .split('\n\n')  // Split commits by double newline
+            .filter(Boolean)
+            .map(block => {
+              const [header, ...details] = block.split('\n');
+              const [commit, author, count, msg] = header.split(':');
+              return `## Commit ${commit.substring(0,7)}\n` +
+                     `- Author: ${author}\n` +
+                     `- Message: ${msg}\n` +
+                     `- Violations: ${count}\n` +
+                     `- Details:\n` +
+                     details.map(d => `  ${d}`).join('\n');
+            })
+            .join('\n\n');
+
+          await github.rest.issues.create({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            title: '🚨 Bot Path Violation Detected',
-            body: `Unauthorized changes detected and reverted. Details:
-              - Commit: ${{ github.sha }}
-              - Author: ${{ github.actor }}
-              See workflow run for full details: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`
-          })
+            title: '🚨 Bot Path Violations Detected',
+            body: `Unauthorized changes were detected and reverted.
+
+            ${violations}
+            
+            See workflow run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+          });
