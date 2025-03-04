@@ -28,7 +28,7 @@ jobs:
           mkdir -p "$CONTENT_DIR"
           echo '{
             "url": "${{ github.event.client_payload.url }}",
-            "datetime": "$TIMESTAMP",
+            "datetime": \"$TIMESTAMP\",
             "title": "${{ github.event.client_payload.title }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
 
@@ -40,7 +40,7 @@ jobs:
             "author": "${{ github.event.client_payload.author }}",
             "label": "${{ github.event.client_payload.label }}",
             "css_class": "${{ github.event.client_payload.css_class }}",
-            "datetime": "$TIMESTAMP",
+            "datetime": \"$TIMESTAMP\",
             "content": "${{ github.event.client_payload.content }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
         fi
