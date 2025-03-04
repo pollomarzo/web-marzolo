@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      commit_sha: ${{ steps.commit-info.outputs.commit_sha }}
+      commit_message: ${{ steps.commit-info.outputs.commit_message }}
 
     steps:
     - name: Checkout repo
@@ -51,17 +54,21 @@ jobs:
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@users.noreply.github.com"
         git add src/bot_gen
-        git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at ${{ steps.process-content.outputs.timestamp}}"
+        COMMIT_MSG="Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at ${{ steps.process-content.outputs.timestamp}}"
+        git commit -m "$COMMIT_MSG"
         git push
+
+    - name: Get commit info
+      id: commit-info
+      run: |
+        echo "commit_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+        echo "commit_message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
 
   notify:
     needs: validate-and-commit
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-
     - name: confirm commit created
       uses: appleboy/telegram-action@master
       with:
@@ -69,8 +76,8 @@ jobs:
         token: ${{ secrets.TELEGRAM_TOKEN }}
         message: |
           ${{ github.actor }} created commit:
-          Commit message: ${{ github.event.commits[0].message }}
+          Commit message: ${{ needs.validate-and-commit.outputs.commit_message }}
 
           Repository: ${{ github.repository }}
 
-          See changes: https://github.com/${{ github.repository }}/commit/${{github.sha}}
+          See changes: https://github.com/${{ github.repository }}/commit/${{ needs.validate-and-commit.outputs.commit_sha }}
