@@ -5,9 +5,9 @@ import json
 import logging
 import os
 import re
-import subprocess
 from pathlib import Path
 
+import aiohttp
 from telegram import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.constants import ParseMode
 from telegram.ext import (
@@ -48,26 +48,9 @@ APPROVE = "approve"  # New callback data for chat approval
 APPROVE_LINK = "approve_link"  # New callback data for link approval
 REJECT_LINK = "reject_link"  # New callback data for link rejection
 
-GIT_USER = os.getenv("GIT_BOT_USER")
-GIT_EMAIL = os.getenv("GIT_BOT_EMAIL")  # github action checks for this!
-BRANCH_NAME = "main"
-
-# File paths - updated for Docker environment
-CURRENT_DIR = Path("/app")
-CREDENTIALS_FILE = Path(
-    os.getenv("CREDENTIALS_FILE")  # , CURRENT_DIR / "config/credentials.json")
-)
-CONFIG_FILE = Path(os.getenv("CONFIG_FILE"))  # , CURRENT_DIR / "config/config.json"))
-CONTENT_DIR = Path(os.getenv("CONTENT_DIR"))  # Docker mounted volume
-THOUGHTS_DIR = CONTENT_DIR / "thoughts"
-PRESS_DIR = CONTENT_DIR / "selected_press"
-SSH_KEY_PATH = Path(
-    os.getenv("SSH_KEY_PATH")  # , "/app/.ssh/bot_ssh_key")
-)  # Docker mounted SSH key
-ALLOWED_FOLDER = CONTENT_DIR
-GIT_RELATIVE_PATH = (
-    "src/bot_gen"  # Relative path from repository root for git operations
-)
+# File paths
+CREDENTIALS_FILE = Path(os.getenv("CREDENTIALS_FILE"))
+CONFIG_FILE = Path(os.getenv("CONFIG_FILE"))
 
 # Loading credentials
 if not CREDENTIALS_FILE.exists():
@@ -79,6 +62,8 @@ with open(CREDENTIALS_FILE) as f:
     credentials = json.load(f)
     TOKEN = credentials["bot_token"]
     DEVELOPER_CHAT_ID = credentials["admin_chat_id"]
+    REPO = credentials["github_repo"]
+    GH_TOKEN = credentials["github_token"]
 
 
 def load_config():
@@ -114,71 +99,62 @@ def check_enabled(func):
     return wrapper
 
 
-def git_operations(now_str: str):
-    """Handle git add, commit and push"""
-    try:
-        author = f"{GIT_USER} <{GIT_EMAIL}>"
-
-        # Git operations will use GIT_DIR and GIT_WORK_TREE from environment
-        logging.info(f"Using GIT_RELATIVE_PATH for git operations: {GIT_RELATIVE_PATH}")
-
-        # Git add specific path only
-        logging.info(f"Running: git add {GIT_RELATIVE_PATH}")
-        subprocess.run(["git", "add", GIT_RELATIVE_PATH], check=True)
-
-        # Git commit
-        commit_message = f"Add thought {now_str} from Telegram bot"
-        logging.info(f"Running: git commit --author {author} -m {commit_message}")
-        subprocess.run(
-            ["git", "commit", "--author", author, "-m", commit_message], check=True
-        )
-
-        # Git push with strict SSH key usage
-        logging.info("Setting up SSH command for git push...")
-        ssh_cmd = (
-            f'ssh -i "{SSH_KEY_PATH}" '  # Use the specified key
-            "-o IdentitiesOnly=yes "  # Ignore keys from SSH agent
-            "-o AddKeysToAgent=no "  # Prevent adding keys to agent
-            "-F /dev/null"  # force an empty config
-        )
-
-        # Prepare environment
-        logging.info("Preparing environment for git push...")
-        env = os.environ.copy()
-        env["GIT_SSH_COMMAND"] = ssh_cmd
-
-        # Block SSH agent access by removing its socket variable
-        if "SSH_AUTH_SOCK" in env:
-            del env["SSH_AUTH_SOCK"]
-            logging.info("Removed SSH_AUTH_SOCK from environment")
-
-        # Push with the custom environment
-        logging.info(
-            f"Running: git push -u origin {BRANCH_NAME} with set up ssh command"
-        )
-        subprocess.run(
-            ["git", "push", "-u", "origin", BRANCH_NAME], check=True, env=env
-        )
-        logging.info("Git operations completed successfully")
-        return True
-    except subprocess.CalledProcessError as e:
-        logging.error(f"Git operation failed: {e}")
-        if hasattr(e, "output"):
-            logging.error(f"Command output: {e.output}")
-        return False
-    except Exception as e:
-        logging.error(f"Unexpected error in git operations: {str(e)}")
-        return False
-
-
 def format_datetime(t: datetime):
     return t.isoformat()[:19]
+
+
+# "thoughts",
+# {
+#     "author": context.user_data["author"],
+#     "css_class": css_class,
+#     "content": context.user_data["content"],
+# },
+# "selected_press", {"url": url, "datetime": now_str, "title": url}
+
+
+async def trigger_github_action(
+    event_type: str,
+    payload: dict,
+) -> bool:
+    """
+    Trigger GitHub Action to save content via repository_dispatch event
+
+    Args:
+        github_token: GitHub Personal Access Token
+        payload: Additional payload data for thought entries
+
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"token {GH_TOKEN}",
+    }
+
+    data = {
+        "event_type": event_type,
+        "client_payload": payload,
+    }
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            url = f"https://api.github.com/repos/{REPO}/dispatches"
+            async with session.post(url, headers=headers, json=data) as response:
+                return (
+                    response.status == 204
+                )  # GitHub returns 204 No Content on success
+    except Exception as e:
+        logging.error(f"Error triggering GitHub Action: {e}")
+        return False
 
 
 class ThoughtsBotHandler:
     def __init__(self):
         self.application = Application.builder().token(TOKEN).build()
         self.config = load_config()
+        self.github_token = credentials.get("github_token")
+        if not self.github_token:
+            raise ValueError("GitHub token not found in credentials")
         self.setup_handlers()
 
     def setup_handlers(self):
@@ -366,50 +342,35 @@ class ThoughtsBotHandler:
             return ConversationHandler.END
 
     async def save_thought(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Save the thought to file and push to git"""
+        """Save the thought by triggering GitHub Action"""
         now = context.user_data["creation_time"]
-        year_month = now.strftime("%Y-%m")
         now_str = format_datetime(now)
-
-        # Create directory if it doesn't exist
-        thought_dir = THOUGHTS_DIR / year_month
-        thought_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create thought file
-        filename = f"{now_str}.json"
-        filepath = thought_dir / filename
 
         # Get chat's css_class from config
         config = load_config()
         chat_id = str(update.effective_chat.id)
         css_class = config.get(chat_id, {}).get("css_class", "default")
 
-        thought_data = {
-            "author": context.user_data["author"],
-            "label": context.user_data["author"],  # Keep original author as label
-            "css_class": css_class,
-            "datetime": now_str + "Z",
-            "content": context.user_data["content"],
-        }
-        logging.info(f"saving thought in {filepath}")
+        logging.info(f"Triggering GitHub Action to save thought")
+        await update.callback_query.edit_message_text("Saving thought...")
 
-        with open(filepath, "w") as f:
-            json.dump(thought_data, f, indent=4)
+        # Trigger GitHub Action
+        success = await trigger_github_action(
+            "add_thought",
+            {
+                "author": context.user_data["author"],
+                "css_class": css_class,
+                "content": context.user_data["content"],
+            },
+        )
 
-        # Git operations
-        if git_operations(now_str):
-            await update.callback_query.edit_message_text(
-                "Thought saved and pushed to repository successfully!"
-            )
+        if success:
+            await update.callback_query.edit_message_text("Thought saved successfully!")
         else:
-            await update.callback_query.edit_message_text(
-                "Thought saved but there was an error pushing to the repository. "
-                "Please check the logs and push manually."
-            )
-            # Notify admin
+            error_msg = "Error saving thought via GitHub API"
+            await update.callback_query.edit_message_text(error_msg)
             await self.application.bot.send_message(
-                chat_id=DEVELOPER_CHAT_ID,
-                text=f"Error pushing thought to repository: {filepath}",
+                chat_id=DEVELOPER_CHAT_ID, text=error_msg
             )
 
         return ConversationHandler.END
@@ -669,7 +630,14 @@ class ThoughtsBotHandler:
     async def handle_link_approval(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
-        """Handle admin's approval of shared link"""
+        """
+        Handle admin's approval of shared link
+
+        When a link is approved:
+        1. Gets the URL from pending_urls using the ID in callback data
+        2. Triggers a GitHub Action to create the selected press entry
+        3. Updates the message with success/failure status
+        """
         query = update.callback_query
         await query.answer()
 
@@ -688,39 +656,25 @@ class ThoughtsBotHandler:
             # Clean up the used URL
             context.bot_data["pending_urls"].pop(url_id)
 
-            # Create directory structure
+            # Get current timestamp
             now = datetime.datetime.now()
-            year_month = now.strftime("%Y-%m")
             now_str = format_datetime(now)
 
-            # Ensure directory exists
-            press_dir = PRESS_DIR / year_month
-            press_dir.mkdir(parents=True, exist_ok=True)
+            # Update status
             await query.edit_message_text(f"{url}\nSaving link...")
 
-            # Save link data
-            filepath = press_dir / f"{now_str}.json"
-            link_data = {
-                "url": url,
-                "datetime": now_str + "Z",
-                # Title could be fetched but requires additional dependencies
-                "title": url,
-            }
-
-            with open(filepath, "w") as f:
-                json.dump(link_data, f, indent=4)
-
-            # Git operations
-            if git_operations(now_str):
+            # Trigger GitHub Action to save the link
+            # TODO fetch the title maaaan
+            if await trigger_github_action(
+                "add_press", {"url": url, "datetime": now_str, "title": url}
+            ):
                 await query.edit_message_text(f"Link approved and saved: {url}")
             else:
-                await query.edit_message_text(
-                    f"Link saved but git push failed: {url}\nPlease check logs."
-                )
+                error_msg = f"Error saving link via GitHub API: {url}"
+                await query.edit_message_text(error_msg)
                 # Notify admin
                 await self.application.bot.send_message(
-                    chat_id=DEVELOPER_CHAT_ID,
-                    text=f"Error pushing approved link to repository: {filepath}",
+                    chat_id=DEVELOPER_CHAT_ID, text=error_msg
                 )
 
         except Exception as e:
