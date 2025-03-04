@@ -59,6 +59,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
     - name: confirm commit created
       uses: appleboy/telegram-action@master
       with:
