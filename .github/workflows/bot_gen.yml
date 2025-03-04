@@ -22,7 +22,7 @@ jobs:
         YEAR_MONTH=${YEAR_MONTH:0:7}  # Extract YYYY-MM
         TIMESTAMP="${{ github.event.client_payload.datetime }}"
 
-        if [[ "${{ github.event.type }}" == "add_press" ]]; then          
+        if [[ "${{ github.event.event_type }}" == "add_press" ]]; then          
           # Create press entry
           CONTENT_DIR="src/bot_gen/selected_press/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
@@ -32,7 +32,7 @@ jobs:
             "title": "${{ github.event.client_payload.title }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
 
-        elif [[ "${{ github.event.type }}" == "add_thought" ]]; then
+        elif [[ "${{ github.event.event_type }}" == "add_thought" ]]; then
           # Create thought entry
           CONTENT_DIR="src/bot_gen/thoughts/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
