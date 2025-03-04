@@ -22,7 +22,7 @@ jobs:
         YEAR_MONTH=${YEAR_MONTH:0:7}  # Extract YYYY-MM
         TIMESTAMP="${{ github.event.client_payload.datetime }}"
 
-        if [[ "${{ github.event.event_type }}" == "add_press" ]]; then          
+        if [[ "${{ github.event.action }}" == "add_press" ]]; then          
           # Create press entry
           CONTENT_DIR="src/bot_gen/selected_press/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
@@ -32,7 +32,7 @@ jobs:
             "title": "${{ github.event.client_payload.title }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
 
-        elif [[ "${{ github.event.event_type }}" == "add_thought" ]]; then
+        elif [[ "${{ github.event.action }}" == "add_thought" ]]; then
           # Create thought entry
           CONTENT_DIR="src/bot_gen/thoughts/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
@@ -44,12 +44,11 @@ jobs:
             "content": "${{ github.event.client_payload.content }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
         fi
-        echo "::set-output name=timestamp::$TIMESTAMP"
 
     - name: Commit and push
       run: |
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@users.noreply.github.com"
         git add src/bot_gen
-        git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at ${{ steps.process-content.timestamp }}"
+        git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at $TIMESTAMP"
         git push
