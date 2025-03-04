@@ -53,3 +53,16 @@ jobs:
         git add src/bot_gen
         git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at ${{ steps.process-content.outputs.timestamp}}"
         git push
+
+    - name: confirm commit created
+      uses: appleboy/telegram-action@master
+      with:
+        to: ${{ secrets.TELEGRAM_BOT_CHANNEL }}
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        message: |
+          ${{ github.actor }} created commit:
+          Commit message: ${{ github.event.commits[0].message }}
+
+          Repository: ${{ github.repository }}
+
+          See changes: https://github.com/${{ github.repository }}/commit/${{github.sha}}
