@@ -44,11 +44,12 @@ jobs:
             "content": "${{ github.event.client_payload.content }}"
         }' > "$CONTENT_DIR/$TIMESTAMP.json"
         fi
+        echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
 
     - name: Commit and push
       run: |
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@users.noreply.github.com"
         git add src/bot_gen
-        git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at $TIMESTAMP"
+        git commit -m "Bot: Add new ${{ github.event.type == 'add_press' && 'selected_press' || 'thought' }} entry at ${{ steps.process-content.outputs.timestamp}}"
         git push
