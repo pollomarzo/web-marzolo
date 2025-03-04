@@ -29,23 +29,23 @@ jobs:
           # Create press entry
           CONTENT_DIR="src/bot_gen/selected_press/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
-          echo '{
-            "url": "${{ github.event.client_payload.url }}",
-            "datetime": \"$TIMESTAMP\",
-            "title": "${{ github.event.client_payload.title }}"
-        }' > "$CONTENT_DIR/$TIMESTAMP.json"
+          echo "{
+            \"url\": \"${{ github.event.client_payload.url }}\",
+            \"datetime\": \"$TIMESTAMP\",
+            \"title\": \"${{ github.event.client_payload.title }}\"
+        }" > "$CONTENT_DIR/$TIMESTAMP.json"
 
         elif [[ "${{ github.event.action }}" == "add_thought" ]]; then
           # Create thought entry
           CONTENT_DIR="src/bot_gen/thoughts/$YEAR_MONTH"
           mkdir -p "$CONTENT_DIR"
-          echo '{
-            "author": "${{ github.event.client_payload.author }}",
-            "label": "${{ github.event.client_payload.label }}",
-            "css_class": "${{ github.event.client_payload.css_class }}",
-            "datetime": \"$TIMESTAMP\",
-            "content": "${{ github.event.client_payload.content }}"
-        }' > "$CONTENT_DIR/$TIMESTAMP.json"
+          echo "{
+            \"author\": \"${{ github.event.client_payload.author }}\",
+            \"label\": \"${{ github.event.client_payload.label }}\",
+            \"css_class\": \"${{ github.event.client_payload.css_class }}\",
+            \"datetime\": \"$TIMESTAMP\",
+            \"content\": \"${{ github.event.client_payload.content }}\"
+        }" > "$CONTENT_DIR/$TIMESTAMP.json"
         fi
         echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
 
