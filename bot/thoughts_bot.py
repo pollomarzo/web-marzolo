@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-import asyncio
 import datetime
 import json
 import logging
-import os
 import re
 from pathlib import Path
 
@@ -49,8 +47,8 @@ APPROVE_LINK = "approve_link"  # New callback data for link approval
 REJECT_LINK = "reject_link"  # New callback data for link rejection
 
 # File paths
-CREDENTIALS_FILE = Path(os.getenv("CREDENTIALS_FILE"))
-CONFIG_FILE = Path(os.getenv("CONFIG_FILE"))
+CREDENTIALS_FILE = Path("./credentials.json")
+CONFIG_FILE = Path("./config.json")
 
 # Loading credentials
 if not CREDENTIALS_FILE.exists():
@@ -127,8 +125,8 @@ async def trigger_github_action(
         bool: True if successful, False otherwise
     """
     headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "Authorization": f"token {GH_TOKEN}",
+        "Accept": "application/vnd.github+json",
+        "Authorization": f"Bearer {GH_TOKEN}",
     }
 
     data = {
@@ -136,10 +134,14 @@ async def trigger_github_action(
         "client_payload": payload,
     }
 
+    logging.info(f"Attempting to run action {event_type} for payload {payload}")
+
+    # remember, 64kb max
     try:
         async with aiohttp.ClientSession() as session:
             url = f"https://api.github.com/repos/{REPO}/dispatches"
             async with session.post(url, headers=headers, json=data) as response:
+                logging.info(f"github responded: {response.status}")
                 return (
                     response.status == 204
                 )  # GitHub returns 204 No Content on success
@@ -365,7 +367,9 @@ class ThoughtsBotHandler:
         )
 
         if success:
-            await update.callback_query.edit_message_text("Thought saved successfully!")
+            await update.callback_query.edit_message_text(
+                "Thought action submitted successfully!"
+            )
         else:
             error_msg = "Error saving thought via GitHub API"
             await update.callback_query.edit_message_text(error_msg)
@@ -668,7 +672,7 @@ class ThoughtsBotHandler:
             if await trigger_github_action(
                 "add_press", {"url": url, "datetime": now_str, "title": url}
             ):
-                await query.edit_message_text(f"Link approved and saved: {url}")
+                await query.edit_message_text(f"Link action started for {url}")
             else:
                 error_msg = f"Error saving link via GitHub API: {url}"
                 await query.edit_message_text(error_msg)
