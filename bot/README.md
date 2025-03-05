@@ -125,6 +125,8 @@ graph TD
 
 
 ## Changes i might eventually make
+1. Review label/author/css class flow
+
 1. Press Enhancement
    - Fetch and show page title for links
    - Add brief description

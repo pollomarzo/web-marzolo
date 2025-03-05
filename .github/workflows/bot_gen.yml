@@ -23,7 +23,7 @@ jobs:
         # Get date components from payload
         YEAR_MONTH="${{ github.event.client_payload.datetime }}Z"
         YEAR_MONTH=${YEAR_MONTH:0:7}  # Extract YYYY-MM
-        TIMESTAMP="${{ github.event.client_payload.datetime }}"
+        TIMESTAMP="${{ github.event.client_payload.datetime }}Z"
 
         if [[ "${{ github.event.action }}" == "add_press" ]]; then          
           # Create press entry
@@ -31,7 +31,7 @@ jobs:
           mkdir -p "$CONTENT_DIR"
           echo "{
             \"url\": \"${{ github.event.client_payload.url }}\",
-            \"datetime\": \"$TIMESTAMP\",
+            \"datetime\": \"${TIMESTAMP\",
             \"title\": \"${{ github.event.client_payload.title }}\"
         }" > "$CONTENT_DIR/$TIMESTAMP.json"
 

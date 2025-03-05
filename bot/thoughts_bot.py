@@ -363,6 +363,8 @@ class ThoughtsBotHandler:
                 "author": context.user_data["author"],
                 "css_class": css_class,
                 "content": context.user_data["content"],
+                "datetime": now_str,
+                "label": "",  # TODO
             },
         )
 
