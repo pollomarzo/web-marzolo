@@ -31,7 +31,7 @@ jobs:
           mkdir -p "$CONTENT_DIR"
           echo "{
             \"url\": \"${{ github.event.client_payload.url }}\",
-            \"datetime\": \"${TIMESTAMP\",
+            \"datetime\": \"$TIMESTAMP\",
             \"title\": \"${{ github.event.client_payload.title }}\"
         }" > "$CONTENT_DIR/$TIMESTAMP.json"
 
