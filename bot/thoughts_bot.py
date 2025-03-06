@@ -256,9 +256,9 @@ class ThoughtsBotHandler:
         # Get user's saved name from config
         config = load_config()
         chat_id = str(update.effective_chat.id)
-        saved_name = config[chat_id]["default_author"]
+        current_thoughts_author = config[chat_id]["thoughts_author"]
         await update.message.reply_text(
-            f"You are saved as: {saved_name}\nWould you like to continue with this name?",
+            f"You are saved as: {current_thoughts_author}\nWould you like to continue with this name?",
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
@@ -268,7 +268,6 @@ class ThoughtsBotHandler:
                 ]
             ),
         )
-        context.user_data["saved_name"] = saved_name
         return USERNAME_CONFIRM
 
     async def handle_username_confirm(
@@ -279,9 +278,8 @@ class ThoughtsBotHandler:
         await query.answer()
 
         if query.data == OK:
-            context.user_data["author"] = context.user_data["saved_name"]
             return await self.show_preview(update, context)
-        else:  # EDIT
+        else:
             await query.edit_message_text("Please enter your new name:")
             return AUTHOR_INPUT
 
@@ -294,16 +292,16 @@ class ThoughtsBotHandler:
 
         # Update config with new default author
         config = load_config()
-        config[chat_id]["default_author"] = new_name
+        config[chat_id]["thoughts_author"] = new_name
+        context.user_data["thoughts_author"] = new_name
         save_config(config)
 
-        context.user_data["author"] = new_name
         return await self.show_preview(update, context)
 
     async def show_preview(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show preview of the thought"""
         content = context.user_data["content"]
-        author = context.user_data["author"]
+        author = context.user_data["thoughts_author"]
         time = context.user_data["creation_time"]
 
         preview = (
@@ -360,11 +358,10 @@ class ThoughtsBotHandler:
         success = await trigger_github_action(
             "add_thought",
             {
-                "author": context.user_data["author"],
+                "author": context.user_data["thoughts_author"],
                 "css_class": css_class,
-                "content": context.user_data["content"],
                 "datetime": now_str,
-                "label": "",  # TODO
+                "content": context.user_data["content"],
             },
         )
 
@@ -509,7 +506,7 @@ class ThoughtsBotHandler:
             return CSS_INPUT
 
         # For group chats, approve immediately
-        config[chat_id] = {"name": chat_name, "type": chat_type}
+        config[chat_id] = {"chat_name": chat_name, "type": chat_type}
         save_config(config)
 
         await query.edit_message_text(
@@ -531,14 +528,10 @@ class ThoughtsBotHandler:
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         """Handle CSS class input for private chats"""
-        if str(update.effective_chat.id) != DEVELOPER_CHAT_ID:
-            return
-
         # Get pending chat info
         pending = context.bot_data.get("pending_css")
         if not pending:
-            logging.warning("Received CSS input but no pending chat")
-            return
+            raise Exception("No pending chat info found in handle_css_input")
 
         css_class = update.message.text
         chat_id = pending["chat_id"]
@@ -548,10 +541,10 @@ class ThoughtsBotHandler:
         # Save to config
         config = load_config()
         config[chat_id] = {
-            "name": chat_name,
+            "chat_name": chat_name,
             "type": chat_type,
             "css_class": css_class,
-            "default_author": chat_name,  # Initialize default_author with chat name
+            "thoughts_author": chat_name,
         }
         save_config(config)
 
@@ -599,6 +592,7 @@ class ThoughtsBotHandler:
 
             # Create approval request for admin
             # Create a unique identifier for this URL request
+            # TODO this is not unique in async obv
             url_id = len(context.bot_data.get("pending_urls", []))
 
             # Store URL in bot data

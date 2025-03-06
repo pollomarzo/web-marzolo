@@ -41,7 +41,6 @@ jobs:
           mkdir -p "$CONTENT_DIR"
           echo "{
             \"author\": \"${{ github.event.client_payload.author }}\",
-            \"label\": \"${{ github.event.client_payload.label }}\",
             \"css_class\": \"${{ github.event.client_payload.css_class }}\",
             \"datetime\": \"$TIMESTAMP\",
             \"content\": \"${{ github.event.client_payload.content }}\"

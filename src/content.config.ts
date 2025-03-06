@@ -15,7 +15,7 @@ const thoughts = defineCollection({
     loader: glob({ pattern: "**/*.json", base: "./src/bot_gen/thoughts" }),
     schema: z.object({
         author: z.string(),
-        label: z.string(),
+        css_class: z.string(),
         datetime: z.string().datetime(),
         content: z.string(),
     })
