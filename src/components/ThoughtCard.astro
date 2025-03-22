@@ -9,34 +9,79 @@ export interface Props {
     datetime: string;
 }
 
-const { author, theme, body, emoji, datetime } = Astro.props as Props;
-const [date, time] = new Date(datetime).toLocaleString("en-US").split(", ");
+const {
+    author = "Anonymous",
+    theme,
+    body = "",
+    emoji = "🗣",
+    datetime,
+} = Astro.props;
+
+// Format date to a more readable format
+const formatDate = (
+    dateString: string,
+): { formattedDate: string; formattedTime: string } => {
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return { formattedDate: "Invalid date", formattedTime: "" };
+        }
+        const formattedDate = new Intl.DateTimeFormat("en-US", {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+        }).format(date);
+
+        const formattedTime = new Intl.DateTimeFormat("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true,
+        }).format(date);
+
+        return { formattedDate, formattedTime };
+    } catch (error) {
+        console.error("Error formatting date:", error);
+        return { formattedDate: "Invalid date", formattedTime: "" };
+    }
+};
+
+const { formattedDate, formattedTime } = formatDate(datetime);
 ---
 
 <li style={themeInCssVar(theme)} class="link-card" data-author={theme}>
-    <div class="d-flex flex-column">
-        <h3 class="whitespace-nowrap">
-            {author}
-            <span id="talk_emoji">🗣</span>
-        </h3>
-        <div>
-            <div>{date}</div>
-            <div>{time}</div>
+    <div class="card-header">
+        <div class="author-info">
+            <span class="author">{author}</span>
+            <span class="talk-emoji">{emoji || "🗣"}</span>
+        </div>
+        <div class="datetime">
+            {formattedDate && <span class="date">{formattedDate}</span>}
+            {formattedTime && <span class="time">{formattedTime}</span>}
         </div>
     </div>
-    <p>
-        {body}
-    </p>
+    <div class="card-content">
+        <p>{body}</p>
+    </div>
 </li>
 <style>
     .link-card {
         list-style: none;
         display: flex;
+        flex-direction: column;
         border: 2px solid var(--color-accent);
         border-radius: 0.5rem;
         transition: border-color 0.3s ease;
         position: relative;
+        width: 100%;
+        text-decoration: none;
+        line-height: 1.4;
+        padding: 0.75rem;
+        border-radius: 0.35rem;
+        color: var(--color-header-text);
+        background-color: var(--color-header);
+        opacity: 0.8;
     }
+
     .link-card::before {
         content: attr(data-author);
         position: absolute;
@@ -44,41 +89,72 @@ const [date, time] = new Date(datetime).toLocaleString("en-US").split(", ");
         right: 0px;
         background-color: black;
         color: white;
+        font-size: 0.55rem;
+        padding: 0.1rem 0.3rem;
+        border-radius: 0 0.35rem 0 0.35rem;
     }
 
     .link-card:is(:hover, :focus-within) {
         border-color: transparent;
     }
 
-    .link-card {
-        width: 100%;
-        text-decoration: none;
-        line-height: 1.4;
-        padding: 0.5em 0.5em;
-        border-radius: 0.35rem;
-        color: var(--color-header-text);
-        background-color: var(--color-header);
-        opacity: 0.8;
+    .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
 
-    h2 {
-        margin: 0;
-        transition: color 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+    .author-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: bold;
+    }
+
+    .author {
+        word-break: break-word;
+    }
+
+    .datetime {
+        display: flex;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--color-header-text);
+        opacity: 0.8;
+        white-space: nowrap;
+    }
+
+    .card-content {
+        width: 100%;
     }
 
     p {
-        margin-top: 0.5rem;
-        margin-bottom: 0;
+        margin: 0;
+        word-break: break-word;
     }
 
-    #talk_emoji {
+    .talk-emoji {
         display: inline-block;
         transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
         color: var(--color-accent);
     }
 
-    .link-card:is(:hover, :focus-within) #talk_emoji {
+    .link-card:is(:hover, :focus-within) .talk-emoji {
         will-change: transform;
         transform: translateX(2px);
+    }
+
+    @media (max-width: 480px) {
+        .card-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .datetime {
+            align-self: flex-end;
+        }
     }
 </style>
