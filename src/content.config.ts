@@ -4,13 +4,7 @@ import { defineCollection, z } from 'astro:content';
 // 2. Import loader(s)
 import { glob } from 'astro/loaders';
 
-// "/src/pages/post/**/*.(md|mdx)"
-// "/src/thoughts/**/*.(json)"
-
 // 3. Define your collection(s)
-// const blog = defineCollection({
-//     loader: glob({ pattern: "**/*.(md|mdx)", base: "/src/pages/post" })
-// });
 const thoughts = defineCollection({
     loader: glob({ pattern: "**/*.json", base: "./src/bot_gen/thoughts" }),
     schema: z.object({
@@ -21,5 +15,16 @@ const thoughts = defineCollection({
     })
 });
 
+const press = defineCollection({
+    loader: glob({ pattern: "**/*.json", base: "./src/bot_gen/selected_press" }),
+    schema: z.object({
+        title: z.string(),
+        url: z.string(),
+        datetime: z.string().datetime(),
+        // description is optional
+        description: z.string().nullable(),
+    })
+});
+
 // 4. Export a single `collections` object to register your collection(s)
-export const collections = { thoughts };
+export const collections = { thoughts, press };
