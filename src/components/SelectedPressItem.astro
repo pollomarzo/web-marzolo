@@ -1,0 +1,30 @@
+---
+import { formatDate } from "~/utils/dates";
+export interface Props {
+    title: string;
+    url: string;
+    datetime: string;
+    description: string | null;
+}
+
+const { title, url, datetime, description } = Astro.props;
+---
+
+<li class="press-item">
+    <a href={url} target="_blank" rel="noopener noreferrer" class="press-link">
+        <h3 class="press-title">{title}</h3>
+    </a>
+    <p class="press-description">{description || ""}</p>
+    <p class="press-datetime">{formatDate(datetime).formattedDate}</p>
+</li>
+
+<style>
+    /* style links as links */
+    a {
+        color: var(--color-primary);
+        text-decoration: underline;
+        text-decoration-color: var(--color-header);
+        text-underline-offset: 5px;
+        text-decoration-thickness: 1px;
+    }
+</style>

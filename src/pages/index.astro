@@ -1,29 +1,54 @@
 ---
 import Card from "~/components/Card.astro";
-import Layout from "../layouts/Layout.astro";
+import Layout from "~/layouts/Layout.astro";
 import { getCollection } from "astro:content";
-const thoughts = await getCollection("thoughts");
+import SelectedPressItem from "~/components/SelectedPressItem.astro";
+
+const MAX_THOUGHTS = 7;
+const MAX_PRESS = 10;
+const latest_n_thoughts = (await getCollection("thoughts"))
+  .toSorted(
+    (a, b) =>
+      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime(),
+  )
+  .slice(0, MAX_THOUGHTS);
+const latest_n_press = (await getCollection("press"))
+  .toSorted(
+    (a, b) =>
+      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime(),
+  )
+  .slice(0, MAX_PRESS);
 import ThoughtCard from "~/components/ThoughtCard.astro";
 ---
 
 <Layout page="">
-  <main class="mt-16">
+  <main class="mt-8">
     The new website for <code>marzolo.com</code>. It's still in development, and
     will likely be forever :). You can check out our current <a href="/posts"
       >posts</a
     >, or check out the family from the top bar.
   </main>
-  <div id="thoughts_container" class="md:w-1/2 w-full self-end">
-    <ul>
-      {
-        // sort thoughts in inverted order, from most recent to oldest
-        thoughts
-          .toSorted(
-            (a, b) =>
-              new Date(b.data.datetime).getTime() -
-              new Date(a.data.datetime).getTime(),
-          )
-          .map((t) => (
+  <div class="flex flex-row w-full mt-2 flex-wrap">
+    <div id="press_container" class="w-full lg:w-1/2 flex-grow">
+      <h2 class="text-xl font-bold">Selected Press</h2>
+      <ul>
+        {
+          latest_n_press.map((p) => (
+            <SelectedPressItem
+              title={p.data.title}
+              url={p.data.url}
+              datetime={p.data.datetime}
+              description={p.data.description}
+            />
+          ))
+        }
+      </ul>
+    </div>
+    <div id="thoughts_container" class="self-end">
+      <h2 class="text-xl font-bold">Latest Thoughts</h2>
+      <ul>
+        {
+          latest_n_thoughts.map((t) => (
             <ThoughtCard
               author={t.data.author}
               body={t.data.content}
@@ -32,8 +57,9 @@ import ThoughtCard from "~/components/ThoughtCard.astro";
               datetime={t.data.datetime}
             />
           ))
-      }
-    </ul>
+        }
+      </ul>
+    </div>
   </div>
 </Layout>
 
