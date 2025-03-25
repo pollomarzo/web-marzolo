@@ -106,7 +106,7 @@ export function getTheme(theme: ThemeConfig | string) {
     if (isString(theme)) {
         let t = themes.find((t) => t.class === theme)
         if (!t) {
-            console.error(`theme ${theme} not found! using default...`)
+            console.error(`theme <${theme}> not found! using default...`)
             t = themes[0]
         }
         theme = t
@@ -118,12 +118,8 @@ export function applyTheme(theme: ThemeConfig | string, parent = document.docume
     theme = getTheme(theme)
     for (const [prop, value] of Object.entries(theme.colors)) {
         parent.style.setProperty(prop, value);
-        // if (parent === document.documentElement)
-        // document.documentElement.classList.remove(
-        //     ...themes.map((theme) => theme.class),
-        // );
-        // document.documentElement.classList.add(theme.class);
-
+        // let's also save the theme in localStorage
+        localStorage.setItem("theme", theme.class)
     }
 }
 export function themeInCssVar(theme: ThemeConfig | string) {
