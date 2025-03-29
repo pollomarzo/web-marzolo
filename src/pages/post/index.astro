@@ -3,14 +3,14 @@ import Layout from "../../layouts/Layout.astro";
 import Card from "../../components/Card.astro";
 
 const posts = Object.values(
-  import.meta.glob("/src/pages/post/**/*.(md|mdx)", { eager: true }),
+  import.meta.glob("/src/pages/post/**/*.(md|mdx)", { eager: true })
 );
 console.log;
 ---
 
 <Layout page="post">
   <p>These are all the posts:</p>
-  <div class="flex mt-4 gap-4">
+  <div class="flex mt-4 gap-4 flex-wrap">
     {
       posts.map((post: any) => (
         <Card
