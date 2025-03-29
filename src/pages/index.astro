@@ -1,24 +1,23 @@
 ---
-import Card from "~/components/Card.astro";
 import Layout from "~/layouts/Layout.astro";
 import { getCollection } from "astro:content";
 import SelectedPressItem from "~/components/SelectedPressItem.astro";
+import ThoughtCard from "~/components/ThoughtCard.astro";
 
 const MAX_THOUGHTS = 7;
 const MAX_PRESS = 10;
 const latest_n_thoughts = (await getCollection("thoughts"))
   .toSorted(
     (a, b) =>
-      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime(),
+      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime()
   )
   .slice(0, MAX_THOUGHTS);
 const latest_n_press = (await getCollection("press"))
   .toSorted(
     (a, b) =>
-      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime(),
+      new Date(b.data.datetime).getTime() - new Date(a.data.datetime).getTime()
   )
   .slice(0, MAX_PRESS);
-import ThoughtCard from "~/components/ThoughtCard.astro";
 ---
 
 <Layout page="">
@@ -44,7 +43,7 @@ import ThoughtCard from "~/components/ThoughtCard.astro";
         }
       </ul>
     </div>
-    <div id="thoughts_container" class="self-end">
+    <div id="thoughts_container" class="w-full lg:w-auto self-end">
       <h2 class="text-xl font-bold">Latest Thoughts</h2>
       <ul>
         {
@@ -62,9 +61,3 @@ import ThoughtCard from "~/components/ThoughtCard.astro";
     </div>
   </div>
 </Layout>
-
-<style>
-  /* #thoughts_container {
-    width: 50%;
-  } */
-</style>

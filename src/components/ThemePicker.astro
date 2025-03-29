@@ -1,5 +1,5 @@
 ---
-import { themes } from "../config/themes";
+import { themes, type ThemeConfig, defaultTheme } from "../config/themes";
 import ThemeButton from "./ThemeButton.astro";
 ---
 
@@ -8,15 +8,3 @@ import ThemeButton from "./ThemeButton.astro";
 >
   {themes.map((theme) => <ThemeButton theme={theme} />)}
 </theme-picker>
-
-<style is:global>
-  /* default style */
-  :root {
-    --color-bg: #813405;
-    --color-text: #fcfcfc;
-    --color-accent: #d45113;
-    --color-accent-text: black;
-    --color-header: #f9a03f;
-    --color-header-text: black;
-  }
-</style>

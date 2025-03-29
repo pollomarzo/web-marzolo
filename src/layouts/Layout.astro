@@ -1,16 +1,24 @@
 ---
 import Nav from "../components/Nav.astro";
 import ThemePicker from "../components/ThemePicker.astro";
+import { styleTagContentWithAllThemes } from "../config/themes";
 
 export interface Props {
   page: string;
 }
 
 const { page } = Astro.props as Props;
+// default theme is "ff"
 ---
 
 <html lang="en">
   <head>
+    <Fragment set:html={styleTagContentWithAllThemes} />
+    <script is:inline>
+      document.documentElement.classList.add(
+        localStorage.getItem("theme") || "ff"
+      );
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />

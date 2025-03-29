@@ -98,6 +98,8 @@ export const themes: ThemeConfig[] = [
     }
 ];
 
+export const defaultTheme = themes[0];
+
 function isString(data: unknown): data is string {
     return typeof data === 'string';
 };
@@ -115,6 +117,8 @@ export function getTheme(theme: ThemeConfig | string) {
 }
 
 export function applyTheme(theme: ThemeConfig | string, parent = document.documentElement) {
+    // this function applies the theme to the root of the document, after including a transition
+    parent.style.transition = "background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, text-shadow 0.3s ease, filter 0.3s ease, opacity 0.3s ease";
     theme = getTheme(theme)
     for (const [prop, value] of Object.entries(theme.colors)) {
         parent.style.setProperty(prop, value);
@@ -125,3 +129,30 @@ export function applyTheme(theme: ThemeConfig | string, parent = document.docume
 export function themeInCssVar(theme: ThemeConfig | string) {
     return Object.entries(getTheme(theme).colors).reduce((p, c) => p + `;${c[0]}:${c[1]}`, "")
 }
+
+const generateThemeCss = (theme: ThemeConfig): string => {
+    const properties = Object.entries(theme.colors)
+        .map(([variable, value]) => `  ${variable}: ${value};`)
+        .join("\n");
+    return `:root.${theme.class} {\n${properties}\n}`;
+};
+
+export const styleTagContentWithAllThemes = `
+  <style is:global>
+    ${themes
+        .map((theme) => generateThemeCss(theme))
+        .join("\n\n")}
+  </style>
+  `;
+// this generates css made like this:
+// :root.ff {
+//   --color-bg: #813405;
+//   --color-text: #fcfcfc;
+//   ...
+// }
+// :root.pp {
+//   --color-bg: #29335c;
+//   --color-text: #ffffff;
+//   ...
+// }
+// this is used to create all themes to enable switching between them
